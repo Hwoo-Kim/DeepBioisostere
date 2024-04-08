@@ -1,0 +1,70 @@
+Current working directory: /scratch/mseok/data/1148413.master/results/data_mmff_conformers_MW0
+Load from: /home/mseok/programs/PIGNet2/src/ckpt/pda_1.pt
+experiment_name: dockrmsd-tpda-2.1/1
+run:
+  ngpu: 1
+  num_workers: 4
+  pin_memory: true
+  seed: 1
+  batch_size: 256
+  num_epochs: 5000
+  save_every: 1
+  lr: 0.0004
+  lr_decay: 1.0
+  weight_decay: 0.0
+  dropout_rate: 0.1
+  loss_dvdw_ratio: 10.0
+  checkpoint_dir: ckpt
+  tensorboard_dir: runs
+  log_file: /scratch/mseok/data/1148413.master/data_mmff_conformers_MW0/output_1.txt
+  restart_file: null
+  checkpoint_file: /home/mseok/programs/PIGNet2/src/ckpt/pda_1.pt
+model:
+  _target_: models.pignet_morse.PIGNetMorse
+  n_gnn: 3
+  dim_gnn: 128
+  dim_mlp: 128
+  interconv: true
+  rotor_penalty: true
+  conv_range:
+  - 0.5
+  - 5.0
+  interaction_range:
+  - 0.5
+  - 999.0
+  dev_vdw_radii_coeff: 0.0
+  vdw_epsilon_scale:
+  - 0.0178
+  - 0.0356
+  hydrogen_bond_cutoffs:
+  - -0.7
+  - 0.0
+  metal_ligand_cutoffs:
+  - -0.7
+  - 0.0
+  hydrophobic_cutoffs:
+  - 0.5
+  - 1.5
+  vdw_width_scale:
+  - 1.0
+  - 2.0
+  short_range_A: 2.1
+  include_ionic: false
+  ionic_cutoffs:
+  - -101.0
+  - -100.0
+data:
+  derivative:
+    key_dir: /scratch/mseok/data/1148413.master
+    data_dir: /scratch/mseok/data/1148413.master/data
+    processed_data_dir: null
+    label_file: /scratch/mseok/data/1148413.master/data2affinity.txt
+    test_result_path: /scratch/mseok/data/1148413.master/data_mmff_conformers_MW0/result_1.txt
+    root_data_dir: null
+
+device: device(type='cuda', index=0), gpu_idx: 0
+Number of test data: 101696
+Number of parameters: 633868
+
+epoch	test_l	test_l_dvdw	test_r2	test_r	test_tau	time
+44	36.498	0.000	0.000	0.000	1.000	229.324

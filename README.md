@@ -30,7 +30,7 @@ This will configure a new conda environment named 'Bioiso'.
 ```
 And go to [Training DeepBioisostere](#training-deepbioisostere).
 
-2. Or, if you want to re-train DeepBioisostere model *with* data data by MMP analysis, you can download the ingredients with:
+2. Or, if you want to re-train DeepBioisostere model *with* data generation by MMP analysis, you can download the ingredients with:
 ```
 ./download_mmpa_data.sh
 ```

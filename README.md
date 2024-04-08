@@ -1,5 +1,5 @@
 # DeepBioisostere
-Fragment-level structural modification to explore bioisosteres
+Deep Learning-based Bioisosteric Replacements for Optimization of Multiple Molecular Properties
 
 # Table of Contents
 - [Install Dependencies](#install-dependencies)
@@ -25,12 +25,14 @@ Or simply you can install the required packages by running
 This will configure a new conda environment named 'Bioiso'.
 ## Training data for DeepBioisostere
 1. If you want to re-train DeepBioisostere model *without* data generation, you can download the training data with:
+(this script would be provided soon...)
 ```
 ./download_train_data.sh
 ```
 And go to [Training DeepBioisostere](#training-deepbioisostere).
 
 2. Or, if you want to re-train DeepBioisostere model *with* data generation by MMP analysis, you can download the ingredients with:
+(this script would be provided soon...)
 ```
 ./download_mmpa_data.sh
 ```
@@ -51,7 +53,7 @@ And go to [Optimize a molecule with DeepBioisostere](#optimize-a-molecule-with-d
 
 ## Optimize a molecule with DeepBioisostere
 An example for molecule optimization with DeepBioisostere can be found in `./example.py` and `./example.ipynb` files.
-The process can be divided as 1) initializing `DeepBioisotere` model, 2) initializing `Generator`, and 3) molecule optimization.
+The process can be divided as 1) initializing `DeepBioisotere` model, 2) initializing `Generator` class, and 3) molecule optimization.
 
 For the molecule optimizaiton process, we provide two options about leaving fragment selection; 1) selection by DeepBioisostere model and 2) manual selection. Below are the full descriptions about the overall process and the two options.
 

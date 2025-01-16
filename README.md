@@ -49,6 +49,9 @@ After getting data for training by ```./download_train_data.sh``` or manually ru
 ```
 python ./train_main.py
 ```
+
+Training arguments that were used to train DeepBioisostere model in our paper can be found in `jobscripts/submit_train.sh`.
+
 And go to [Optimize a molecule with DeepBioisostere](#optimize-a-molecule-with-deepbioisostere).
 
 ## Optimize a molecule with DeepBioisostere

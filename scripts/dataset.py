@@ -274,7 +274,7 @@ class TrainCollator:
         self.frags_freq = fragment_library.frags_freq  # torch.LongTensor
         self.frag_features = fragment_library.frag_features  # List[PairData]
 
-        self.frag_brics_maskings = fragment_library.frag_brics_maskings  # dict
+        # self.frag_brics_maskings = fragment_library.frag_brics_maskings  # dict
         self.data_type = fragment_library.data_type  # np.array
         self.num_neg_sample = num_neg_sample
         self.mode = mode
@@ -287,8 +287,9 @@ class TrainCollator:
         self.exclude_keys = exclude_keys
 
         # Set train/val/test mode
+        self.frag_brics_maskings = dict()
         frag_datatype_mask = torch.from_numpy(self.data_type == mode).bool()
-        for k, v in self.frag_brics_maskings.items():
+        for k, v in fragment_library.frag_brics_maskings.items():
             self.frag_brics_maskings[k] = torch.mul(v, frag_datatype_mask)
 
     def __call__(self, batch):

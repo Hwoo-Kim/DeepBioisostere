@@ -19,7 +19,7 @@ def filter_line(
     pchembl_criteria: int = 5,
 ) -> bool:
     try:
-        cid, pchembl, smi = line.split()
+        cid, pchembl, assayid, targetid, smi = line.split()
     except ValueError:
         return True  # First row
     mol = Chem.MolFromSmiles(smi)
@@ -48,7 +48,7 @@ def mp(nprocs: int, lines: List[str]) -> List[bool]:
 def main():
     with args.input_file.open("r") as f:
         lines = f.readlines()
-    data = mp(12, lines)
+    data = mp(16, lines)
 
     done = set()
     with args.output_file.open("w") as f:
@@ -64,7 +64,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-i",
         "--input_file",
-        default="./chembl_activities_220720.txt",
+        default="./chembl_activities_250115.txt",
         type=Path,
         help="ChEMBL data parsed result",
     )

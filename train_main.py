@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import copy
 import pickle
 import time
@@ -13,8 +16,6 @@ from scripts.dataset import FragmentLibrary, TrainCollator, TrainDataset
 from scripts.model import DeepBioisostere
 from scripts.train import LR_Scheduler, Trainer
 from scripts.utils import Logger, set_cuda_visible_devices, set_seed, train_path_setting
-
-idle_gpus = set_cuda_visible_devices()
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
@@ -38,11 +39,8 @@ def main(args):
         f"number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}"
     )
     if args.use_cuda:
-        if idle_gpus == "":
-            logger("There is no avaliable GPU now. CPU machine would be used.")
-        else:
-            logger("GPU machine was found.")
-            model.cuda()
+        logger("GPU machine was found.")
+        model.cuda()
     device = model.device
     logger(f"device: {device}")
 

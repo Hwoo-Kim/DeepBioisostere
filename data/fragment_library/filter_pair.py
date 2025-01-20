@@ -1,7 +1,7 @@
 from collections import defaultdict
 from contextlib import ExitStack
 from functools import partial
-from multiprocessing import cpu_count, Lock, Pool
+from multiprocessing import cpu_count, Lock, Pool, synchronize
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
@@ -12,7 +12,8 @@ from rdkit import Chem
 from make_frag_db import remove_dummy_atom_from_mol
 from parse_db import COLS
 
-SMILES = CID = str
+SMILES = str
+CID = str
 ATOM_INDEX = int
 
 
@@ -42,13 +43,14 @@ def get_unique_min_substruct(
     frag_smis.remove(shortest_smi)
 
     for indice, frag_smi in zip(list(key_frag_atom_indice), list(frag_smis)):
-        frag_mol = Chem.MolFromSmiles(frag_smi)
-        frag_mol = remove_dummy_atom_from_mol(frag_mol)
         if len(indice) == len(shortest_indice):
             continue
-        elif frag_mol.HasSubstructMatch(shortest_mol):
-            key_frag_atom_indice.remove(indice)
-            frag_smis.remove(frag_smi)
+        else:
+            frag_mol = Chem.MolFromSmiles(frag_smi)
+            frag_mol = remove_dummy_atom_from_mol(frag_mol)
+            if frag_mol.HasSubstructMatch(shortest_mol):
+                key_frag_atom_indice.remove(indice)
+                frag_smis.remove(frag_smi)
 
     substruct_smis.append(shortest_smi)
     if frag_smis:
@@ -113,7 +115,7 @@ def divide_dic(dic: Dict[str, Any]) -> List[Dict[str, Any]]:
     return dics
 
 
-def init_pool(lock_: Lock):
+def init_pool(lock_: synchronize.Lock):
     global lock
     lock = lock_
 
@@ -123,7 +125,11 @@ def main():
 
     df = pd.read_csv(args.pair_file, delimiter="\t", low_memory=False)
     df = filter_if_same_old_new_frags(df)
-
+    df = df[df["REF-ASSAY-ID"] == df["PRB-ASSAY-ID"]]               # Filter w/ same assay id
+    assay_id = df["REF-ASSAY-ID"]
+    df = df.drop(columns=["REF-ASSAY-ID", "PRB-ASSAY-ID"])
+    df.insert(4, "ASSAY-ID", assay_id)                              # Merge two columns
+    
     records = df.to_dict("records")
     dic = defaultdict(list)
     for record in records:

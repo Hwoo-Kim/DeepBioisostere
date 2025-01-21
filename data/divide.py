@@ -81,29 +81,29 @@ def main():
         dfs.append(df)
     df = pd.concat(dfs, axis="index", ignore_index=True)
 
-    unique_frags = get_unique(df, key="OLD-FRAG")
+    unique_frags = get_unique(df, key="NEW-FRAG")
     np.random.shuffle(unique_frags)
     train_frags, val_frags, test_frags = get_train_val_test(
-        unique_frags, train_ratio=0.6, val_ratio=0.2
+        unique_frags, train_ratio=0.8, val_ratio=0.1
     )
 
     train_df = parallel_df_filtering(
         df,
-        keys=["OLD-FRAG", "NEW-FRAG"],
+        keys=["NEW-FRAG"],
         valids=set(train_frags),
         nprocs=args.nprocs,
     )
     train_df["DATATYPE"] = "train"
     val_df = parallel_df_filtering(
         df,
-        keys=["OLD-FRAG", "NEW-FRAG"],
+        keys=["NEW-FRAG"],
         valids=set(val_frags),
         nprocs=args.nprocs,
     )
     val_df["DATATYPE"] = "val"
     test_df = parallel_df_filtering(
         df,
-        keys=["OLD-FRAG", "NEW-FRAG"],
+        keys=["NEW-FRAG"],
         valids=set(test_frags),
         nprocs=args.nprocs,
     )

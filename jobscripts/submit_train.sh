@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH -J DeepBio_prev_train
+#SBATCH -J DeepBio_train
 #SBATCH -p a4000
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=16
@@ -12,15 +12,26 @@
 ##### Run #####
 date
 
+export TORCH_SHOW_CPP_STACKTRACES=1
+export TORCH_CPP_LOG_LEVEL=INFO
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+# export TORCH_SHM_DISABLE=1
+
+loginctl enable-linger $USER
+
+export TMPDIR="/scratch/swkim/DeepBioisostere/shared_memory_tmp/slurm_$SLURM_JOB_ID"
+mkdir -p $TMPDIR
+
 project_dir=~/DeepBioisostere/
 cd $project_dir
 
 # 1. Data Path Arguments
-raw_data_folder="/home/share/DATA/mseok/DeepBioisostere_prev_train_datas/240204"
+# raw_data_folder="/home/share/DATA/mseok/DeepBioisostere_prev_train_datas/240204"
+raw_data_folder="data"
 raw_data_path="$raw_data_folder/processed_data.csv"
 
 # # copy to scratch
-scratch_dir="/scratch/swkim/DeepBioisostere/prev"
+scratch_dir="/scratch/swkim/DeepBioisostere"
 if [ ! -d "$scratch_dir" ]; then
     mkdir -p "$scratch_dir"
 fi
@@ -51,11 +62,11 @@ print_loss=true
 
 # job name and log file setting
 prop_inform="${properties//,/\_}"
-EXP_NAME="Deepbio_prev_train_${prop_inform}"
+EXP_NAME="Deepbio_train_${prop_inform}"
 
 scontrol update JobID=$SLURM_JOB_ID JobName=$EXP_NAME  # change name
-mv DeepBio_prev_train_${SLURM_JOB_ID}.out ${EXP_NAME}_${SLURM_JOB_ID}.out
-mv DeepBio_prev_train_${SLURM_JOB_ID}.err ${EXP_NAME}_${SLURM_JOB_ID}.err
+mv DeepBio_train_${SLURM_JOB_ID}.out ${EXP_NAME}_${SLURM_JOB_ID}.out
+mv DeepBio_train_${SLURM_JOB_ID}.err ${EXP_NAME}_${SLURM_JOB_ID}.err
 
 if $conditioning; then
   save_name=delta_conditioning_$prop_inform
@@ -171,5 +182,8 @@ fi
 # 5. Main Operation
 MAIN_CMD=$(echo $MAIN_CMD | tr "\n" " ")
 eval $MAIN_CMD
+
+loginctl disable-linger $USER       # NEED TO REVISE; Linger should not be changed by other jobs
+rm -rf $TMPDIR
 
 date

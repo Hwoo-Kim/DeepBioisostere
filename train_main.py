@@ -1,6 +1,3 @@
-import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-
 import copy
 import pickle
 import time
@@ -112,6 +109,7 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_cores,
         sampler=train_sampler,
+        pin_memory=True,
     )
     train_data_loader.collate_fn = TrainCollator(
         fragment_library=insertion_frag_lib,
@@ -127,6 +125,7 @@ def main(args):
         batch_size=args.batch_size,
         num_workers=args.num_cores,
         sampler=val_sampler,
+        pin_memory=True,
     )
     val_data_loader.collate_fn = TrainCollator(
         fragment_library=insertion_frag_lib,

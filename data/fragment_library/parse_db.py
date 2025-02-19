@@ -18,6 +18,10 @@ COLS = [
     "PRB-CID",
     "REF-SMI",
     "PRB-SMI",
+    "REF-ASSAY-ID",
+    "PRB-ASSAY-ID",
+    "REF-TARGET-ID",
+    "PRB-TARGET-ID",
     "KEY-FRAG-ATOM-INDICE",
     "ATOM-FRAG-INDICE",
     "OLD-FRAG",
@@ -39,6 +43,7 @@ def get_pairs_per_rest_frag(rest_frag: str, df: pd.DataFrame):
 
         ref_smi = ref_series.get("SMI")
         prb_smi = prb_series.get("SMI")
+
         if (ref_cid == prb_cid) or (ref_smi == prb_smi):
             continue
 
@@ -47,6 +52,10 @@ def get_pairs_per_rest_frag(rest_frag: str, df: pd.DataFrame):
             prb_cid,
             ref_smi,
             prb_smi,
+            ref_series.get("ASSAY-ID"),
+            prb_series.get("ASSAY-ID"),
+            ref_series.get("TARGET-ID"),
+            prb_series.get("TARGET-ID"),
             ref_series.get("KEY-FRAG-ATOM-INDICE"),
             ref_series.get("ATOM-FRAG-INDICE"),
             ref_series.get("KEY-FRAG"),
@@ -60,6 +69,10 @@ def get_pairs_per_rest_frag(rest_frag: str, df: pd.DataFrame):
             ref_cid,
             prb_smi,
             ref_smi,
+            prb_series.get("ASSAY-ID"),
+            ref_series.get("ASSAY-ID"),
+            prb_series.get("TARGET-ID"),
+            ref_series.get("TARGET-ID"),
             prb_series.get("KEY-FRAG-ATOM-INDICE"),
             prb_series.get("ATOM-FRAG-INDICE"),
             prb_series.get("KEY-FRAG"),

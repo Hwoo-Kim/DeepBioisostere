@@ -203,6 +203,7 @@ class FragLibProcessor:
         # Save the results into csv files and a pickle file
         # the original data file were filtered by the filter_data method
         print("Saving the results...")
+        print("PRINT", self.frag_features_path, self.frag_brics_maskings_path)
         self.data_df.to_csv(
             self.data_df_save_path, sep="\t", index=True, index_label="INDEX"
         )

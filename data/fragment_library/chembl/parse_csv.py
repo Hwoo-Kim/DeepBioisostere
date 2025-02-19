@@ -52,12 +52,12 @@ def main():
     whole_cols = get_whole_columns(files)
     args = zip(files, repeat(whole_cols))
 
-    dfs = mp(10, args)
+    dfs = mp(16, args)
     df = pd.concat(dfs, ignore_index=True)
     df.sort_values(by=[COLS[0]])
 
     data = [df[col] for col in COLS]
-    fn = "chembl_activities_220720.txt"
+    fn = "chembl_activities_250115.txt"
     with open(fn, "w") as w:
         line = "\t".join([col.ljust(20) for col in COLS])
         w.write(line + "\n")
@@ -69,5 +69,5 @@ def main():
 
 
 if __name__ == "__main__":
-    COLS = ["Molecule ChEMBL ID", "pChEMBL Value", "Smiles"]
+    COLS = ["Molecule ChEMBL ID", "pChEMBL Value", "Assay ChEMBL ID", "Target ChEMBL ID", "Smiles"]
     main()

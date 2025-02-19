@@ -4,7 +4,7 @@ from contextlib import ExitStack
 from copy import deepcopy
 from functools import partial
 from itertools import combinations
-from multiprocessing import Lock, Manager, Pool, cpu_count, get_context
+from multiprocessing import Lock, Manager, Pool, cpu_count, get_context, synchronize
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union
 
@@ -14,7 +14,8 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import BRICS, Atom, BondType, Mol
 
 SMILES = str
-INDEX = COUNT = int
+INDEX = int
+COUNT = int 
 ATOM_INDEX = Union[List[INDEX], str]
 BOND_INDICE = Tuple[INDEX, INDEX]
 BRICS_TYPE = Tuple[str, str]
@@ -24,6 +25,8 @@ FRAG_INFO = Dict[SMILES, SMILES]  # fragment: remaining fragments
 COLS = [
     "CID",
     "SMI",
+    "ASSAY-ID",
+    "TARGET-ID",
     "KEY-FRAG",
     "REST-FRAG",
     "NUM-FRAGS",
@@ -481,7 +484,7 @@ class FragmentParser:
 
 
 def write_data(line: str, dic: Dict[str, int]):
-    cid, pchembl, smi = line.split()
+    cid, pchembl, assayid, targetid, smi = line.split()
     mol = Chem.MolFromSmiles(smi)
     if mol is None:
         return
@@ -507,6 +510,8 @@ def write_data(line: str, dic: Dict[str, int]):
                 line = [
                     cid,
                     smi,
+                    assayid,
+                    targetid,
                     key_frag,
                     rest_frag,
                     str(num_frags),
@@ -526,7 +531,7 @@ def filter_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def init_pool(lock_: Lock):
+def init_pool(lock_: synchronize.Lock):
     global lock
     lock = lock_
 

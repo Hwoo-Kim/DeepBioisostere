@@ -5,33 +5,55 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=16
 #SBATCH -o %x_%j.out
-#SBATCH -e %x_%j.out
+#SBATCH -e %x_%j.err
 #SBATCH --time=120:00:00
 #SBATCH --gres=gpu:1
 
 ##### Run #####
 date
 
-shopt -s expand_aliases
-source ~/.bashrc
+export TORCH_SHOW_CPP_STACKTRACES=1
+export TORCH_CPP_LOG_LEVEL=INFO
+export TORCH_DISTRIBUTED_DEBUG=DETAIL
+# export TORCH_SHM_DISABLE=1
+
+loginctl enable-linger $USER
+
+export TMPDIR="/scratch/swkim/DeepBioisostere/shared_memory_tmp/slurm_$SLURM_JOB_ID"
+mkdir -p $TMPDIR
+
 project_dir=~/DeepBioisostere/
 cd $project_dir
 
-mamba activate Bioiso
-
 # 1. Data Path Arguments
-raw_data_path="/home/hwkim/FragModNet/230313/processed_data.csv"
+# raw_data_folder="/home/share/DATA/mseok/DeepBioisostere_prev_train_datas/240204"
+raw_data_folder="data"
+raw_data_path="$raw_data_folder/processed_data.csv"
 
-# copy to scratch
-scratch_dir="/home/scratch/hwkim/DeepBioisostere"
+# # copy to scratch
+scratch_dir="/scratch/swkim/DeepBioisostere"
 if [ ! -d "$scratch_dir" ]; then
     mkdir -p "$scratch_dir"
 fi
 data_path=$scratch_dir"/processed_data.csv"
-cp $raw_data_path $data_path
+if [ ! -e "$data_path" ]; then
+    cp "$raw_data_path" "$data_path"
+fi
+
+if [ ! -e "$scratch_dir/fragment_library.csv" ]; then
+    cp "$raw_data_folder/fragment_library.csv" "$scratch_dir/fragment_library.csv"
+fi
+
+if [ ! -e "$scratch_dir/frag_brics_maskings.pkl" ]; then
+    cp "$raw_data_folder/frag_brics_maskings.pkl" "$scratch_dir/frag_brics_maskings.pkl"
+fi
+
+if [ ! -e "$scratch_dir/frag_features.pkl" ]; then
+    cp "$raw_data_folder/frag_features.pkl" "$scratch_dir/frag_features.pkl"
+fi
 
 # experiment setting
-properties="logp,qed"         # should not contain empty space!! only comma(,) is allowed.
+properties="sa,qed"         # should not contain empty space!! only comma(,) is allowed.
 conditioning=true
 use_delta=true                # conditioning option.
 use_soft_one_hot=false        # conditioning option.
@@ -39,7 +61,7 @@ profiling=false
 print_loss=true
 
 # job name and log file setting
-prop_inform="${variable//,/\_}"
+prop_inform="${properties//,/\_}"
 EXP_NAME="Deepbio_train_${prop_inform}"
 
 scontrol update JobID=$SLURM_JOB_ID JobName=$EXP_NAME  # change name
@@ -160,5 +182,8 @@ fi
 # 5. Main Operation
 MAIN_CMD=$(echo $MAIN_CMD | tr "\n" " ")
 eval $MAIN_CMD
+
+loginctl disable-linger $USER       # NEED TO REVISE; Linger should not be changed by other jobs
+rm -rf $TMPDIR
 
 date

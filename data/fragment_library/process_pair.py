@@ -18,6 +18,9 @@ COLS = [
     "PRB-CID",
     "REF-SMI",
     "PRB-SMI",
+    "ASSAY-ID",
+    "REF-TARGET-ID",
+    "PRB-TARGET-ID",
     "KEY-FRAG-ATOM-INDICE",
     "ATOM-FRAG-INDICE",
     "OLD-FRAG",
@@ -55,6 +58,9 @@ def get_attachment_information(elems: List, file: Path) -> None:
     (
         ref_smi,
         prb_smi,
+        assay_id,
+        ref_target_id,
+        prb_target_id,
         key_frag_atom_indice,
         _,
         old_frag_smi,
@@ -177,7 +183,7 @@ def get_attachment_information(elems: List, file: Path) -> None:
         allowed_attach_new_frag_to_ref_mol.append(f"{str(k)}-{atoms_in_ref_mol}")
     allowed_attach_new_frag_to_ref_mol = ",".join(allowed_attach_new_frag_to_ref_mol)
 
-    # REF-CID PRB-CID REF-SMI PRB-SMI KEY-FRAG-ATOM-INDICE ATOM-FRAG-INDICE OLD-FRAG NEW-FRAG ALLOWED-ATTACHMENT
+    # REF-CID PRB-CID REF-SMI ASSAY-ID REF-TARGET-ID PRB-TARGET-ID PRB-SMI KEY-FRAG-ATOM-INDICE ATOM-FRAG-INDICE OLD-FRAG NEW-FRAG ALLOWED-ATTACHMENT
     del elems[-1]
     elems[-1] = allowed_attach_new_frag_to_ref_mol
 

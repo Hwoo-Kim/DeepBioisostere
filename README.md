@@ -24,6 +24,7 @@ Or simply you can install the required packages by running
 conda env create -f environment.yml
 conda install pytorch==1.11.0 cudatoolkit=11.3 -c pytorch
 pip install -r requirements.txt
+pip install -e .
 ```
 
 This will configure a new conda environment named 'Bioiso'.

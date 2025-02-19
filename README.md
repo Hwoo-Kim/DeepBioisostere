@@ -10,7 +10,8 @@ Deep Learning-based Bioisosteric Replacements for Optimization of Multiple Molec
 
 
 ## Install Dependencies
-DeepBioisostere model requires conda environment. After installing [conda](https://www.anaconda.com/), you can manually install the required pakages as follows:
+DeepBioisostere model requires conda environment. After installing [conda](https://www.anaconda.com/), you can manually install the required packages as follows:
+
 - rdkit=2022.03.1
 - matplotlib
 - scipy
@@ -19,9 +20,12 @@ DeepBioisostere model requires conda environment. After installing [conda](https
 - pytorch>=1.11.0
 
 Or simply you can install the required packages by running
+```bash
+conda env create -f environment.yml
+conda install pytorch==1.11.0 cudatoolkit=11.3 -c pytorch
+pip install -r requirements.txt
 ```
-./dependencies
-```
+
 This will configure a new conda environment named 'Bioiso'.
 ## Training data for DeepBioisostere
 1. If you want to re-train DeepBioisostere model *without* data generation, you can download the training data with:

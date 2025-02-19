@@ -14,11 +14,11 @@ from torch.multiprocessing import Lock
 from torch_geometric.data import Batch
 from torch_geometric.loader import DataLoader
 
-from .brics.brics import BRICSModule, BRICSTypeMapper
-from .conditioning import Conditioner
-from .dataset import FragmentLibrary, InferenceCollator, InferenceDataset
-from .model import DeepBioisostere
-from .property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
+from brics.brics import BRICSModule, BRICSTypeMapper
+from conditioning import Conditioner
+from dataset import FragmentLibrary, InferenceCollator, InferenceDataset
+from model import DeepBioisostere
+from property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 mp.set_sharing_strategy("file_system")
 

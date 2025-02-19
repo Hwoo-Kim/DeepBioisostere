@@ -10,7 +10,7 @@ RDLogger.DisableLog("rdApp.*")
 import numpy as np
 import torch
 
-from .data import PairData
+from data import PairData
 
 BOND_INDICE = Tuple[int, int]
 BRICS_TYPE = Tuple[str, str]

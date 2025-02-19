@@ -9,8 +9,8 @@ from torch import Tensor
 from torch_geometric.data import Batch, Data
 from torch_scatter import scatter_mean, scatter_sum
 
-from .feature import PairData, from_mol, from_smiles
-from .layers import AMPN, FMPN, FeedForward, MPNNEmbedding
+from feature import PairData, from_mol, from_smiles
+from layers import AMPN, FMPN, FeedForward, MPNNEmbedding
 
 # from .property import PROPERTIES
 

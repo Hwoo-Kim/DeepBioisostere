@@ -5,10 +5,10 @@ import pandas as pd
 import torch
 from torch_geometric.loader import DataLoader
 
-from .conditioning import Conditioner
-from .dataset import FragmentLibrary, InferenceCollator, InferenceDataset
-from .generate import Generator
-from .model import DeepBioisostere
+from conditioning import Conditioner
+from dataset import FragmentLibrary, InferenceCollator, InferenceDataset
+from generate import Generator
+from model import DeepBioisostere
 
 
 class Evaluator(Generator):

@@ -8,7 +8,7 @@ from torch_geometric.data import Data
 from torch_geometric.nn import MessagePassing
 from torch_scatter import scatter_sum
 
-from .data import PairData
+from data import PairData
 
 
 class MPNNLayer(MessagePassing):

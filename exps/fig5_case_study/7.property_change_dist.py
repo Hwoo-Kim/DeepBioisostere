@@ -1,15 +1,11 @@
-import sys
-
-import matplotlib.pyplot as plt
-
-sys.path.append("../../")
 from collections import defaultdict
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
+from property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 from rdkit import Chem
-from scripts.property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 sns.set_style("white")
 sns.set_context("paper", font_scale=2.5)
@@ -74,7 +70,8 @@ g.figure.suptitle("Property Change Distribution")
 
 for idx, ax in enumerate(g.axes.flat):
     prop = props[idx]
-    ax.axvline(ref_data[prop],
+    ax.axvline(
+        ref_data[prop],
         color="r",
         linestyle="dashed",
         label="Reference molecule's property" if idx == 0 else None,
@@ -87,7 +84,9 @@ for idx, ax in enumerate(g.axes.flat):
     )
     ax.set_xlabel(prop)
 
-leg = g.figure.legend(ncol=2, loc="upper center", bbox_to_anchor=(0.5, 0.95), framealpha=0.0)
+leg = g.figure.legend(
+    ncol=2, loc="upper center", bbox_to_anchor=(0.5, 0.95), framealpha=0.0
+)
 leg.get_frame().set_linewidth(0.0)
 leg.get_frame().set_facecolor("white")
 plt.tight_layout()

@@ -4,8 +4,8 @@ from functools import partial
 import torch
 from rdkit import Chem
 
-from .model import DeepBioisostere
-from .property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
+from model import DeepBioisostere
+from property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 SMILES = str
 PROPERTY = str

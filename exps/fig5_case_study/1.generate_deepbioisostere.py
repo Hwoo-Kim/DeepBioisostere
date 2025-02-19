@@ -1,14 +1,12 @@
-import sys
 import time
 from pathlib import Path
-sys.path.append("../..")
 
 from rdkit import Chem
 
-from scripts.conditioning import Conditioner
-from scripts.generate import Generator
-from scripts.model import DeepBioisostere
-from scripts.property import calc_logP, calc_Mw, calc_QED, calc_SAscore
+from conditioning import Conditioner
+from generate import Generator
+from model import DeepBioisostere
+from property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 
 def print_properties(smi: str):

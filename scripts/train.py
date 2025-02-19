@@ -7,7 +7,7 @@ from numpy import double
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from .model import DeepBioisostere
+from model import DeepBioisostere
 
 
 class Trainer(nn.Module):

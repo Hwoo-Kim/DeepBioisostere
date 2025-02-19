@@ -15,11 +15,11 @@ from rdkit.Chem import BRICS
 from rdkit.Chem.FragmentMatcher import FragmentMatcher as FM
 from torch_geometric.data import Batch, Dataset
 
-from .brics.brics import BRICSModule
-from .conditioning import Conditioner
-from .data import PairData
-from .feature import from_mol
-from .model import DeepBioisostere
+from brics.brics import BRICSModule
+from conditioning import Conditioner
+from data import PairData
+from feature import from_mol
+from model import DeepBioisostere
 
 mp.set_sharing_strategy("file_system")
 

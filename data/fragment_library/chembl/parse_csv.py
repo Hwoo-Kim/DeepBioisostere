@@ -1,10 +1,44 @@
 import glob
 import re
+import sqlite3
 from itertools import repeat
 from multiprocessing import Pool
 from typing import Any, Iterable, List, Optional
 
 import pandas as pd
+
+
+def create_tables(db_name: str) -> None:
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS molecule (
+            molecule_id INTEGER PRIMARY KEY,
+            smiles TEXT
+        );
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS activity (
+            molecule_id INTEGER,
+            pchembl_value REAL,
+            assay_chembl_id INTEGER,
+            target_chembl_id INTEGER,
+            FOREIGN KEY (molecule_id) REFERENCES molecule (molecule_id)
+        );
+    """)
+    cursor.execute("""
+        PRAGMA journal_mode = WAL;
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def clean_chembl_id(value: str) -> Optional[int]:
+    match = re.match(r"CHEMBL(\d+)", value)
+    return int(match.group(1)) if match else None
 
 
 def read_csv(
@@ -15,7 +49,7 @@ def read_csv(
     if re.match(re.compile(regex), file):
         header = None
     else:
-        header = "infer"  # first file
+        header = "infer"
 
     df = pd.read_csv(
         file,
@@ -29,6 +63,11 @@ def read_csv(
 
     df = df[COLS]
     df.dropna(axis=0, how="any", inplace=True)
+
+    df["Molecule ChEMBL ID"] = df["Molecule ChEMBL ID"].apply(clean_chembl_id)
+    df["Assay ChEMBL ID"] = df["Assay ChEMBL ID"].apply(clean_chembl_id)
+    df["Target ChEMBL ID"] = df["Target ChEMBL ID"].apply(clean_chembl_id)
+
     return df
 
 
@@ -47,6 +86,20 @@ def get_whole_columns(files: List[str], regex: str = "DOWNLOAD-.+=\.csv") -> pd.
     return df.columns
 
 
+def save_to_sqlite(df: pd.DataFrame, db_name: str) -> None:
+    conn = sqlite3.connect(db_name)
+
+    molecule_df = df[["Molecule ChEMBL ID", "Smiles"]].drop_duplicates()
+    molecule_df.columns = ["molecule_id", "smiles"]
+    molecule_df.to_sql("molecule", conn, if_exists="append", index=False)
+
+    activity_df = df.drop(columns=["Smiles"])
+    activity_df.columns = ["molecule_id", "pchembl_value", "assay_chembl_id", "target_chembl_id"]
+    activity_df.to_sql("activity", conn, if_exists="append", index=False)
+
+    conn.close()
+
+
 def main():
     files = sorted(glob.glob("*.csv"))
     whole_cols = get_whole_columns(files)
@@ -56,15 +109,10 @@ def main():
     df = pd.concat(dfs, ignore_index=True)
     df.sort_values(by=[COLS[0]])
 
-    data = [df[col] for col in COLS]
-    fn = "chembl_activities_250115.txt"
-    with open(fn, "w") as w:
-        line = "\t".join([col.ljust(20) for col in COLS])
-        w.write(line + "\n")
-        for d in zip(*data):
-            d = list(map(str, list(d)))
-            d = [dd.ljust(20) for dd in d]
-            w.write("\t".join(d) + "\n")
+    db_name = "chembl_activities_250115.db"
+
+    create_tables(db_name)
+    save_to_sqlite(df, db_name)
     return
 
 

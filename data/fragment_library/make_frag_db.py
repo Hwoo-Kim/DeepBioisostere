@@ -1,17 +1,14 @@
 import collections
-import time
-from contextlib import ExitStack
+import sqlite3
 from copy import deepcopy
 from functools import partial
 from itertools import combinations
-from multiprocessing import Lock, Manager, Pool, cpu_count, get_context, synchronize
-from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union
+from multiprocessing import Pool, cpu_count, Manager, Lock
+from typing import Dict, List, Optional, Set, Tuple, Union, Iterator
 
 import numpy as np
-import pandas as pd
-from rdkit import Chem, RDLogger
-from rdkit.Chem import BRICS, Atom, BondType, Mol
+from rdkit import Chem
+from rdkit.Chem import BRICS, Mol
 
 SMILES = str
 INDEX = int
@@ -22,19 +19,6 @@ BRICS_TYPE = Tuple[str, str]
 BRICS_BOND = Tuple[BOND_INDICE, BRICS_TYPE]  # ((3, 2), ('3', '4'))
 FRAG_INFO = Dict[SMILES, SMILES]  # fragment: remaining fragments
 
-COLS = [
-    "CID",
-    "SMI",
-    "ASSAY-ID",
-    "TARGET-ID",
-    "KEY-FRAG",
-    "REST-FRAG",
-    "NUM-FRAGS",
-    "KEY-FRAG-ATOM-INDICE",
-    "ATOM-FRAG-INDICE",
-    "BRICS-EDGE-INDICE",
-    "CUTTING-EDGE-INDICE",
-]
 
 
 def remove_bond(rwmol: Chem.RWMol, idx1: ATOM_INDEX, idx2: ATOM_INDEX):
@@ -483,20 +467,22 @@ class FragmentParser:
         return fragmentation_results
 
 
-def write_data(line: str, dic: Dict[str, int]):
-    cid, pchembl, assayid, targetid, smi = line.split()
-    mol = Chem.MolFromSmiles(smi)
-    if mol is None:
-        return
-    frag_parser = FragmentParser(mol, max_natoms=args.max_natoms)
-    fragmentation_results = frag_parser.mol_to_frag_info()
-    if not fragmentation_results:
-        return
-
-    with ExitStack() as stack:
-        lock = globals().get("lock", False)
-        if lock:
-            stack.enter_context(lock)
+def process_data(rows: List[Tuple], cid_to_brics_bond_indice: Dict[int, str],
+                 key_fragment_dict: Dict[str, int], rest_fragment_dict: Dict[str, int], lock: Lock) -> List[Tuple]:
+    insert_data = []
+    chunk_idx, rows = rows
+    print(f"{chunk_idx}-th chunk")
+    
+    for cid, smi in rows:
+        mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            continue
+        
+        frag_parser = FragmentParser(mol, max_natoms=args.max_natoms)
+        fragmentation_results = frag_parser.mol_to_frag_info()
+        if not fragmentation_results:
+            continue
+        
         for fragmentation in fragmentation_results:
             for key_frag, values in fragmentation.items():
                 (
@@ -506,68 +492,135 @@ def write_data(line: str, dic: Dict[str, int]):
                     brics_bonds_indice,
                     cut_edges_indice,
                 ) = values
-                num_frags = len(rest_frag.split(".")) + 1
-                line = [
-                    cid,
-                    smi,
-                    assayid,
-                    targetid,
-                    key_frag,
-                    rest_frag,
-                    str(num_frags),
-                    key_frag_atom_indice,
-                    atom_frag_indice,
-                    brics_bonds_indice,
-                    cut_edges_indice,
-                ]
-                line = ";".join(line)
-                dic[line] = 1
-    return
+                if cid not in cid_to_brics_bond_indice:
+                    cid_to_brics_bond_indice[cid] = brics_bonds_indice
+                
+                insert_data.append((cid, key_frag, rest_frag, key_frag_atom_indice, atom_frag_indice, cut_edges_indice))
+
+    with lock:
+        for i in range(len(insert_data)):
+            cid, key_frag, rest_frag, key_frag_atom_indice, atom_frag_indice, cut_edges_indice = insert_data[i]
+
+            if key_frag not in key_fragment_dict:
+                key_fragment_dict[key_frag] = len(key_fragment_dict) + 1
+            if rest_frag not in rest_fragment_dict:
+                rest_fragment_dict[rest_frag] = len(rest_fragment_dict) + 1
+            
+            key_frag_id = key_fragment_dict[key_frag]
+            rest_frag_id = rest_fragment_dict[rest_frag]
+
+            insert_data[i] = (cid, key_frag_id, rest_frag_id, key_frag_atom_indice, atom_frag_indice, cut_edges_indice)
+            
+    return insert_data
 
 
-def filter_duplicates(df: pd.DataFrame) -> pd.DataFrame:
-    df = df[df.duplicated(subset=["REST-FRAG"], keep=False)]
-    df = df.drop_duplicates()
-    return df
-
-
-def init_pool(lock_: synchronize.Lock):
-    global lock
-    lock = lock_
+def merge_and_write_data(all_data: List[List[Tuple]], db_file: str, cid_to_brics_bond_indice: Dict[int, str],
+                         key_fragment_dict: Dict[str, int], rest_fragment_dict: Dict[str, int]) -> None:
+    conn = sqlite3.connect(db_file)
+    cur = conn.cursor()
+    
+    cur.executemany(
+        """
+        UPDATE filtered_molecule_id
+        SET brics_bond_indice = ?
+        WHERE molecule_id = ?
+        """,
+        ((brics_bond_indice, cid) for cid, brics_bond_indice in cid_to_brics_bond_indice.items())
+    )
+    
+    cur.executemany(
+        """
+        INSERT INTO key_fragments (key_frag, key_frag_id)
+        VALUES (?, ?)""",
+        key_fragment_dict.items()
+    )
+    cur.executemany(
+        """
+        INSERT INTO rest_fragments (rest_frag_id, rest_frag, num_frags)
+        VALUES (?, ?, ?)""",
+        ((idx, frag, len(frag.split("."))) for (frag, idx) in rest_fragment_dict.items())
+    )
+    cur.executemany(
+        """
+        INSERT INTO fragments (molecule_id, key_frag_id, rest_frag_id, 
+                                        key_frag_atom_indice, atom_frag_indice, cut_edges_indice)
+        VALUES (?, ?, ?, ?, ?, ?)""",
+        (data for sublist in all_data for data in sublist)
+    )
+    conn.commit()
+    conn.close()
 
 
 def main():
-    args.result_file.parent.mkdir(exist_ok=True, parents=True)
+    conn = sqlite3.connect(args.db_file)
+    cur = conn.cursor()
+    
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS key_fragments (
+            key_frag_id INTEGER PRIMARY KEY,
+            key_frag TEXT UNIQUE
+        )"""
+    )
 
-    manager = Manager()
-    dic = manager.dict()
-    lock = Lock()
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS rest_fragments (
+            rest_frag_id INTEGER PRIMARY KEY,
+            rest_frag TEXT UNIQUE,
+            num_frags INTEGER
+        )"""
+    )
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS fragments (
+            fragmentation_id INTEGER PRIMARY KEY,
+            molecule_id INTEGER,
+            key_frag_id INTEGER,
+            rest_frag_id INTEGER,
+            key_frag_atom_indice TEXT,
+            atom_frag_indice TEXT,
+            cut_edges_indice TEXT,
+            FOREIGN KEY (molecule_id) REFERENCES molecule (molecule_id),
+            FOREIGN KEY (key_frag_id) REFERENCES key_fragments (key_frag_id),
+            FOREIGN KEY (rest_frag_id) REFERENCES rest_fragments (rest_frag_id)
+        )"""
+    )
+    
+    conn.commit()
+    
     nprocs = cpu_count() if not args.nprocs else args.nprocs
-    with args.chembl_file.open("r") as f:
-        f.readline()  # skip first line
+    cur.execute("SELECT molecule.* from molecule join filtered_molecule_id USING (molecule_id)")
+    rows = cur.fetchall()
+    conn.close()
+    
+    chunk_size = 1000
+    row_chunks = [(i//chunk_size, rows[i : i + chunk_size]) for i in range(0, len(rows), chunk_size)]
+    
+    manager = Manager()
+    cid_to_brics_bond_indice = manager.dict()
+    key_fragment_dict = manager.dict()
+    rest_fragment_dict = manager.dict()
+    lock = manager.Lock()
 
-        worker = partial(write_data, dic=dic)
-        with Pool(nprocs, initializer=init_pool, initargs=(lock,)) as pool:
-            pool.map(worker, f)
-
-    data = [key.split(";") for key in dic.keys()]
-    df = pd.DataFrame(data, columns=COLS)
-    df = filter_duplicates(df)
-
-    df["NUM-FRAGS"].astype(int)
-    df.to_csv(args.result_file, index=False)
-    return
-
+    with Pool(nprocs) as pool:
+        all_data = pool.map(partial(process_data,
+                                    cid_to_brics_bond_indice=cid_to_brics_bond_indice,
+                                    key_fragment_dict=key_fragment_dict,
+                                    rest_fragment_dict=rest_fragment_dict,
+                                    lock = lock),
+                            row_chunks)
+    
+    merge_and_write_data(all_data, args.db_file, cid_to_brics_bond_indice, key_fragment_dict, rest_fragment_dict)
 
 if __name__ == "__main__":
     import argparse
-
+    
     parser = argparse.ArgumentParser("Fragment library argparser")
-    parser.add_argument("--chembl_file", type=Path, default="./mini_chembl.txt")
-    parser.add_argument("--result_file", type=Path, default="./result.csv")
+    parser.add_argument("--db_file", type=str, default="chembl/chembl_activities_250115.db")
     parser.add_argument("--max_natoms", type=int, default=12)
-    parser.add_argument("-n", "--nprocs", type=int, default=1)
-    parser.add_argument("--cols", type=str, nargs="+", default=COLS)
+    parser.add_argument("-n", "--nprocs", type=int, default=0)
     args, _ = parser.parse_known_args()
-
+    
     main()

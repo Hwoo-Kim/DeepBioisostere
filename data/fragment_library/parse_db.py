@@ -4,6 +4,7 @@ from multiprocessing import cpu_count, Pool, Manager
 from pathlib import Path
 from typing import List, Optional, Set, Tuple
 
+import sqlite3
 import numpy as np
 import pandas as pd
 from rdkit import Chem
@@ -104,6 +105,35 @@ def get_pairs_per_num_frags(df: pd.DataFrame, num_frags: int):
 
 
 def main():
+    conn = sqlite3.connect(args.db_file)
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        CREATE TABLE IF NOT EXISTS fragment_pairs (
+            ref_molecule_id INTEGER,
+            prb_molecule_id INTEGER,
+            assay_id INTEGER,
+            old_frag_id INTEGER,
+            new_frag_id INTEGER,
+            
+        )"""
+    )
+
+    COLS = [
+        "REF-CID",
+        "PRB-CID",
+        "ASSAY-ID",
+        "OLD-FRAG-ID",
+        "NEW-FRAG-ID",
+        "KEY-FRAG-ATOM-INDICE",
+        "ATOM-FRAG-INDICE",
+        "BRICS-EDGE-INDICE : ?",
+        "CUTTING-EDGE-INDICE : ?",
+    ]
+
+
+
     df = pd.read_csv(args.fragment_file, low_memory=False)
     pairs = get_pairs_per_num_frags(df, args.num_frags)
 
@@ -118,9 +148,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser("Fragment library argparser")
-    parser.add_argument("--fragment_file", type=Path, default="./test.csv")
-    parser.add_argument("--num_frags", type=int)
-    parser.add_argument("--result_file", type=Path)
+    parser.add_argument("--db_file", type=str, default="chembl/chembl_activities_250115.db")
     args, _ = parser.parse_known_args()
 
     main()

@@ -1,80 +1,98 @@
 """
-1. MW <= 800 Da
-2. 0 <= pChEMBL <= 10_000 nM
-3. Without "."
+1. MW <= 800 Da                            -> filtered in filter_molecule()
+2. 0 <= ChEMBL <= 10_000 nM (pChEMBL >= 5) -> filtered in query
+3. Without "."                             -> filtered in filter_molecule()
 """
+import sqlite3
 import argparse
 from multiprocessing import Pool
-from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem.Descriptors import ExactMolWt
 
 
-def filter_line(
-    line: str,
+def filter_molecule(
+    molecule_id: int,
+    smiles: str,
     mw_criteria: int = 800,
-    pchembl_criteria: int = 5,
-) -> bool:
-    try:
-        cid, pchembl, assayid, targetid, smi = line.split()
-    except ValueError:
-        return True  # First row
-    mol = Chem.MolFromSmiles(smi)
+) -> Tuple[int, bool]:
+    mol = Chem.MolFromSmiles(smiles)
     if mol is None:
-        return False
+        return molecule_id, False
     elif ExactMolWt(mol) > mw_criteria:
-        return False
-    elif float(pchembl) <= pchembl_criteria:
-        return False
-    elif "." in smi:
-        return False
-    return True
+        return molecule_id, False
+    elif "." in smiles:
+        return molecule_id, False
+    return molecule_id, True
 
 
-def mp(nprocs: int, lines: List[str]) -> List[bool]:
+def mp(nprocs: int, data: List[Tuple[int, str]]) -> List[Tuple[int, bool]]:
     pool = Pool(nprocs)
-    results = pool.map_async(filter_line, lines)
+    results = pool.starmap_async(filter_molecule, data)
     results.wait()
     pool.close()
     pool.join()
+    return results.get()
 
-    data = results.get()
-    return data
+
+def create_filtered_table(db_name: str) -> None:
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS filtered_molecule_id (
+            molecule_id INTEGER PRIMARY KEY,
+            brics_bond_indice TEXT,
+            FOREIGN KEY (molecule_id) REFERENCES molecule (molecule_id)
+        );
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def save_filtered_data(db_name: str, filtered_molecule_ids: List[int]) -> None:
+    conn = sqlite3.connect(db_name)
+    cursor = conn.cursor()
+
+    cursor.executemany(
+        """
+        INSERT OR IGNORE INTO filtered_molecule_id (molecule_id, brics_bond_indice)
+        VALUES (?, ?);
+        """,
+        ((m, None) for m in filtered_molecule_ids)
+    )
+
+    conn.commit()
+    conn.close()
 
 
 def main():
-    with args.input_file.open("r") as f:
-        lines = f.readlines()
-    data = mp(16, lines)
+    db_name = "chembl_activities_250115.db"
 
-    done = set()
-    with args.output_file.open("w") as f:
-        for ok, line in zip(data, lines):
-            if ok and (cid := line.split()[0]) not in done:
-                f.write(line)
-                done.add(cid)
+    conn = sqlite3.connect(db_name)
+    query = """
+        SELECT molecule.molecule_id, molecule.smiles
+        FROM molecule
+        JOIN activity ON molecule.molecule_id = activity.molecule_id
+        WHERE activity.pchembl_value >= 5.0;
+    """
+    df = pd.read_sql_query(query, conn)
+    conn.close()
+
+    data = list(df.itertuples(index=False, name=None))
+
+    filtered_results = mp(16, data)
+    filtered_molecule_ids = [mol_id for mol_id, keep in filtered_results if keep]
+
+    create_filtered_table(db_name)
+    save_filtered_data(db_name, filtered_molecule_ids)
     return
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument(
-        "-i",
-        "--input_file",
-        default="./chembl_activities_250115.txt",
-        type=Path,
-        help="ChEMBL data parsed result",
-    )
-    parser.add_argument(
-        "-o",
-        "--output_file",
-        default="./filtered_chembl.txt",
-        type=Path,
-        help="Filter result file",
-    )
-    args, _ = parser.parse_known_args()
-
+    parser.parse_known_args()
     main()

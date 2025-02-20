@@ -6,3 +6,4 @@ torch_geometric==2.1.0 -f https://data.pyg.org/whl/torch-1.11.0+cu113.html
 ipywidgets
 ipykernel
 notebook
+cairosvg

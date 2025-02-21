@@ -730,8 +730,11 @@ class FragmentLibrary(Dataset):
 
             # Parse fragment library
             PROJ_DIR = Path(__file__).parents[1]
-            sys.path.append(str(PROJ_DIR))
-            from data.fragment_library.parse_fragments import FragLibProcessor
+            # sys.path.append(str(PROJ_DIR))
+            fragment_library_scripts = PROJ_DIR / "data"
+            sys.path.append(str(fragment_library_scripts))
+
+            from fragment_library.parse_fragments import FragLibProcessor
             FragLibProcessor.process_frag_library(frag_lib_dir=data_dir, num_cores=num_cores)
             print("Fragment library parsing has been done.")
 

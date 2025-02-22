@@ -1,17 +1,18 @@
 #!/bin/bash
 
 #SBATCH -J DeepBio_train
-#SBATCH -p a4000
+#SBATCH -p 3080ti
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=16
 #SBATCH -o %x_%j.out
 #SBATCH -e %x_%j.err
-#SBATCH --time=120:00:00
-#SBATCH --gres=gpu:1
+#SBATCH --time=infinite
+#SBATCH --gres=gpu:4
 
 ##### Run #####
 date
 
+export LD_LIBRARY_PATH=/home/swkim/.mamba/envs/Unlucky_Bioiso/lib
 export TORCH_SHOW_CPP_STACKTRACES=1
 export TORCH_CPP_LOG_LEVEL=INFO
 export TORCH_DISTRIBUTED_DEBUG=DETAIL
@@ -53,7 +54,7 @@ if [ ! -e "$scratch_dir/frag_features.pkl" ]; then
 fi
 
 # experiment setting
-properties="sa,qed"         # should not contain empty space!! only comma(,) is allowed.
+properties="logp"         # should not contain empty space!! only comma(,) is allowed.
 conditioning=true
 use_delta=true                # conditioning option.
 use_soft_one_hot=false        # conditioning option.

@@ -343,36 +343,13 @@ class Generator:
     # TODO: removal fragment selection 용 method 만들기.
     @torch.no_grad()
     def score_removal_fragment(
-        self, input_list: List[Tuple[SMILES, Dict[str, float]]]
+        self, input_list: List[Tuple[SMILES, Dict[str, float]]], verbose=False
     ) -> pd.DataFrame:
         """
         Generate modified molecules for a given SMILES list.
-        TODO
 
-        Parameters
-        ----------
-        About batch_data.
-          x_n                (bool) : [N,F_n], for node (atom)
-          edge_index_n       (int)  : [2,E_n], for node (atom) and model
-          edge_attr_n        (bool) : [E_n,F_e], for node (atom)
-          x_f                (int)  : [N], node to frag indice matcher
-          edge_index_f       (int)  : [2,E_f], frag-level connectivity information
-          edge_attr_f        (int)  : [2,E_f], atom indice for each frag-level edges
-
-          smiles             (str)  : [B], SMILES of original molecule
-        TODO:
-          About batch_data.
-          x (bool): [N,F_n]
-          edge_index (int): [2,E]
-          edge_attr (bool): [E,F_e]
-          smiles (str): [B]
-          batch (int): [N]
-
-          y_fragID           (int)  : [B], Fragment ID for which will be inserted (answer frag ID)
-          y_pos_subgraph     (bool) : [pos_F], positive subgraphs for original molecule
-          y_pos_subgraph_idx (bool) : [pos_F], positive subgraphs scatter indices for original molecule
-          y_neg_subgraph     (bool) : [neg_F], allowed but negative subgraphs for original molecule
-          y_neg_subgraph_idx (bool) : [neg_F], allowed but negative subgraphs scatter indices for original molecule
+        Args:
+            input_list: List of modification information, smiles_list, prop_dict_list.
 
         """
         # Read input_list
@@ -403,7 +380,12 @@ class Generator:
 
         # Main Generation Part
         batch_result = []
-        for batch_idx, batch in enumerate(data_dl):
+        iterator = enumerate(data_dl)
+        if verbose:
+            from tqdm import tqdm
+            iterator = tqdm(iterator, total=len(data_dl))
+            
+        for batch_idx, batch in iterator:
             data = batch["data"].to(self.device)
             if self.conditioner:
                 for prop in self.properties:

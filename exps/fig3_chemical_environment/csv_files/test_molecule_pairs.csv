@@ -1,2 +1,2 @@
 REMOVAL-FRAG	SMILES1	SMILES2
-[*]c1[c;H1][c;H1][n;H0][n;H1]1	Brc1ccc2oc(-c3ccc(-c4ccn[nH]4)cc3)nc2c1	CC(=O)NS(=O)(=O)CCNC(=O)c1ccn[nH]1
+[*]c1[c;H1][n;H1][n;H0][c;H1]1	Cc1nc2ccc(Cl)cc2c(-n2ccc3c(O)cc(-c4cn[nH]c4)cc32)c1C	NC(=O)[C@H](Cc1ccccc1)NC(=O)[C@H](CS)NC(=O)c1cn[nH]c1

@@ -980,7 +980,11 @@ class Generator:
         # Group the dataframe by the 'INPUT-MOL-IDX' column and sort them by probability in descending order
         grouped_df = result_df.groupby("INPUT-MOL-IDX")
         sorted_groups = []
+        smallest = None
         for data_idx, group in grouped_df:
+            if smallest is None:
+                smallest = data_idx
+            data_idx -= smallest  # Normalize data_idx to start from 0
             each_sampling_result = sampling_result_list[data_idx]
             subgraph_to_num_samples = each_sampling_result["num_sample"]
 

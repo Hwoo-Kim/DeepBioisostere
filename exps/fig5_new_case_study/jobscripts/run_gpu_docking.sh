@@ -41,7 +41,7 @@ mv "gpu_dock_out_${SLURM_JOB_ID}.log" "${JOB_NAME_SUFFIX}_${SLURM_JOB_ID}.out" |
 mv "gpu_dock_err_${SLURM_JOB_ID}.err" "${JOB_NAME_SUFFIX}_${SLURM_JOB_ID}.err" || true
 
 
-PERSISTENT_OUTPUT_TAR_DIR_BASE="/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250520/docking_gpu_results"
+PERSISTENT_OUTPUT_TAR_DIR_BASE="/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250522/docking_gpu_results"
 mkdir -p "$PERSISTENT_OUTPUT_TAR_DIR_BASE"
 
 

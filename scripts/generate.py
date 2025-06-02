@@ -100,6 +100,7 @@ class Generator:
         self.frag_lib_size = len(frags_lib_dataset)
         self.frags_smis = frags_lib_dataset.frags_smis
         self.brics_type = frags_lib_dataset.brics_type
+        self.frags_freq = frags_lib_dataset.frags_freq
 
         self.brics_type_to_insertion_frags = dict()
         brics_types, positions = np.unique(self.brics_type, return_inverse=True)

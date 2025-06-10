@@ -461,7 +461,7 @@ class BRICSModule:
         combined_mol = Chem.CombineMols(building_rwmol, frag_to_compose_rwmol)
         combined_rwmol = Chem.RWMol(combined_mol)
 
-        if brics_type == "7":
+        if brics_type == 7:
             bond_type = Chem.BondType.DOUBLE
         else:
             bond_type = Chem.BondType.SINGLE

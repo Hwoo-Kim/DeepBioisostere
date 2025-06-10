@@ -1,14 +1,21 @@
+import logging
+import os
 import random
 import re
-import rdkit
+import subprocess
+from collections import defaultdict
+
+import pandas as pd
 import rdkit.Chem as Chem
-from rdkit.Chem import BRICS
 import rdkit.Chem.AllChem as AllChem
 import pandas as pd
 import logging
 import os
 import subprocess
 import itertools
+from rdkit.Chem import BRICS
+
+from property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 
 class Logger(logging.Logger):
@@ -48,8 +55,6 @@ class Logger(logging.Logger):
 
 
 def set_seed(seed):
-    import random
-
     import numpy as np
     import torch
 
@@ -125,6 +130,7 @@ def generate_path_setting(args):
 
     return args
 
+
 class FrequencySampler:
     def __init__(self, smis: list[str], replacement_lib_path: str, generate_all_attachments: bool = True):
         self.smis = smis
@@ -133,14 +139,14 @@ class FrequencySampler:
         return
 
     def filter_frag(self, num_atoms, broken_frag, max_num_change_atoms=12):
-        if broken_frag.GetNumAtoms() > max_num_change_atoms:
+        if broken_frag.GetNumHeavyAtoms() > max_num_change_atoms:
             return False
-        elif broken_frag.GetNumAtoms() > num_atoms/2:
+        elif broken_frag.GetNumHeavyAtoms() > num_atoms / 2:
             return False
-        else: 
+        else:
             return True
 
-    def sample(self, num_samples: int) -> list[str]:
+    def sample(self, num_samples: int, random_gen: bool = False) -> list[str]:
         """
         Args:
             num_samples: (int) number of SMILES per input molecule.
@@ -148,14 +154,7 @@ class FrequencySampler:
             generation_df: (pd.DataFrame) DataFrame containing sampled SMILES.
         """
 
-        generation_dict = {
-            "INPUT-SMI": [],
-            "GEN-SMI": [],
-            "OLD-FRAG": [],
-            "NEW-FRAG": [],
-            "USED-REPLACEMENT-SMILES": [],
-            "USED-REPLACEMENT-FREQ": [],
-        }
+        generation_dict = defaultdict(list)
 
         for smi in self.smis:
             # 1. break by BRICS rule
@@ -170,8 +169,7 @@ class FrequencySampler:
             # 2. filter brics-broken SMILES
             num_atoms = mol.GetNumAtoms()
             allowed_frags = [
-                frag for frag in brics_fragments
-                if self.filter_frag(num_atoms, frag)
+                frag for frag in brics_fragments if self.filter_frag(num_atoms, frag)
             ]
 
             # 3. explore replacement library
@@ -183,7 +181,9 @@ class FrequencySampler:
                 # replacement_candidates = self.replacement_lib[
                 #     self.replacement_lib["OLD-FRAG"].str.contains(frag_smi)
                 # ]
-                replacement_candidates = self.replacement_lib[self.replacement_lib["OLD-FRAG"]==frag_smi]
+                replacement_candidates = self.replacement_lib[
+                    self.replacement_lib["OLD-FRAG"] == frag_smi
+                ]
 
                 if replacement_candidates.empty:
                     continue
@@ -201,13 +201,16 @@ class FrequencySampler:
 
             # 4. sample from replacement library
             # NOTE: sampling based on frequency
-            sampled_replacements = sampled_replacements.sample(frac=1).reset_index(drop=True)
-            sampled_replacements = sampled_replacements.sort_values(
-                by="FREQUENCY", ascending=False
-            ).reset_index(drop=True)
+            sampled_replacements = sampled_replacements.sample(frac=1).reset_index(
+                drop=True
+            )
+            if not random_gen:
+                sampled_replacements = sampled_replacements.sort_values(
+                    by="FREQUENCY", ascending=False
+                ).reset_index(drop=True)
 
             num_gen_mol = 0
-            pattern = r'\[(1[0-6]|[1-9])\*\]'
+            pattern = r"\[(1[0-6]|[1-9])\*\]"
             for _, row in sampled_replacements.iterrows():
                 old_frag, new_frag = row["OLD-FRAG"], row["NEW-FRAG"]
                 # remove isotope tag, possibly mutiple isotope tages
@@ -255,8 +258,9 @@ class FrequencySampler:
 
                 if not self.generate_all_attachments:
                     random.shuffle(replacements)
-                    replacements = [replacements[0]]
+                    replacements = replacements[:1]
 
+                gen_mol_list = []
                 for replacement in replacements:
                     # 5. generate SMILES
                     rxn = AllChem.ReactionFromSmarts(replacement)
@@ -268,32 +272,54 @@ class FrequencySampler:
 
                     random.shuffle(gen_mols)
                     gen_mol = gen_mols[0][0]
+                    try:
+                        Chem.SanitizeMol(gen_mol)
+                    except Exception as e:
+                        continue
 
                     if gen_mol is None:
                         continue
 
-                    generation_dict["INPUT-SMI"].append(smi)
-                    generation_dict["GEN-SMI"].append(Chem.MolToSmiles(gen_mol))
+                    gen_mol_list.append(gen_mol)
+
+                    logp = calc_logP(gen_mol)
+                    mw = calc_Mw(gen_mol)
+                    qed = calc_QED(gen_mol)
+                    sa = calc_SAscore(gen_mol)
+
+                    generation_dict["INPUT-MOL-SMI"].append(smi)
+                    generation_dict["GEN-MOL-SMI"].append(Chem.MolToSmiles(gen_mol))
                     generation_dict["OLD-FRAG"].append(old_frag)
                     generation_dict["NEW-FRAG"].append(new_frag)
                     generation_dict["USED-REPLACEMENT-SMILES"].append(replacement)
                     generation_dict["USED-REPLACEMENT-FREQ"].append(row["FREQUENCY"])
+                    generation_dict["LOGP"].append(logp)
+                    generation_dict["MW"].append(mw)
+                    generation_dict["QED"].append(qed)
+                    generation_dict["SA"].append(sa)
                     num_gen_mol += 1
 
+                    if num_gen_mol == num_samples:
+                        break
                 if num_gen_mol == num_samples:
+                    print(f"already generated {num_gen_mol} samples for {smi}.")
                     break
             else:
-                print(f"Not enough samples generated for {smi}. " f"Generated {num_gen_mol} samples.")
+                print(
+                    f"Not enough samples generated for {smi}. "
+                    f"Generated {num_gen_mol} samples."
+                )
 
         # 6. create DataFrame
         generation_df = pd.DataFrame(generation_dict)
         return generation_df
 
+
 if __name__ == "__main__":
     sampler = FrequencySampler(
-        smis=["c1ccccc1CC(O)CC(=O)OCCO"],
+        smis=["O=C(O)C(O)C1OOCC1O"],
         replacement_lib_path="/home/share/DATA/swkim/DeepBioisostere/replacement_library.csv",
         generate_all_attachments=True,
     )
-    gen_df = sampler.sample(num_samples=1000)
+    gen_df = sampler.sample(num_samples=100)
     gen_df.to_csv("sampled_molecules.csv", index=False, sep="\t")

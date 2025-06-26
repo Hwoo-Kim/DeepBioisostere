@@ -6,9 +6,10 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from scripts.baseline_generator import BaselineGenerator
+from scripts.generate import Generator
 from scripts.conditioning import Conditioner
 from scripts.model import DeepBioisostere
+from scripts.utils import set_seed
 
 
 def unnormalize_sa(norm_sa):
@@ -40,7 +41,7 @@ if __name__ == "__main__":
         help="Directory to save the generated results.",
         type=Path,
         default=Path(
-            "/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250531"
+            "/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250611_final"
         ),
     )
     parser.add_argument(
@@ -58,13 +59,10 @@ if __name__ == "__main__":
         default=["0.10", "-1.0"],
     )
     parser.add_argument(
-        "--strategy",
-        help="Generation strategy to use (1, 2, 3). "
-        "1: random leaving fragment + frequency-based insertion fragment, "
-        "2: DeepBioisostere-selected leaving fragment + frequency-based insertion fragment, "
-        "3: random leaving fragment + random insertion fragment.",
-        choices=["1", "2", "3"],
-        type=str,
+        "--seed",
+        help="SEED",
+        type=int,
+        default=0,
     )
     args = parser.parse_args()
 
@@ -72,6 +70,7 @@ if __name__ == "__main__":
         "SBDD generation CSV directory does not exist."
     )
     args.sbdd_gen_csv = args.sbdd_gen_csv_dir / f"{args.model_name}_eval/result.csv"
+    set_seed(args.seed)
 
     # USER SETTINGS
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -87,13 +86,14 @@ if __name__ == "__main__":
     frag_lib_path = f"{proj_dir}/fragment_library/"
     output_path = (
         args.result_dir
-        / f"strategy_{args.strategy}"
+        / "gen"
         / args.model_name
         / str(args.target_idx)
         / ("_".join(args.target_properties) + ".csv")
     )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     print("=== Configuration Values ===")
+    print(f"seed: {args.seed}")
     print(f"device: {device}")
     print(f"num_cores: {num_cores}")
     print(f"batch_size: {batch_size}")
@@ -106,17 +106,13 @@ if __name__ == "__main__":
     print(f"output_path: {output_path}")
     print("=" * 30)
 
-    # Initialize conditioner for property control
+    # Initialize model and generator
+    model = DeepBioisostere.from_trained_model(model_path, properties=properties)
     conditioner = Conditioner(
         phase="generation",
         properties=properties,
     )
-
-    # Initialize model for strategy 2
-    model = DeepBioisostere.from_trained_model(model_path, properties=args.properties)
-
-    # Initialize baseline generator
-    baseline_generator = BaselineGenerator(
+    generator = Generator(
         model=model,
         processed_frag_dir=frag_lib_path,
         conditioner=conditioner,
@@ -128,11 +124,6 @@ if __name__ == "__main__":
         properties=properties,
     )
 
-    # Set strategy
-    generate_strategy = getattr(
-        baseline_generator, f"generate_strategy_{args.strategy}"
-    )
-
     # make inputs
     df = pd.read_csv(args.sbdd_gen_csv, low_memory=False)
     target_df = df[df["test_idx"] == args.target_idx]
@@ -140,13 +131,15 @@ if __name__ == "__main__":
 
     # apply unnormalize function to SA property
     target_df["SA"] = target_df["SA"].apply(unnormalize_sa)
+    target_df.dropna(subset=["SMILES"], inplace=True)
 
     input_list = target_df["SMILES"].tolist()
     prop_input = dict(zip(args.properties, list(map(float, args.target_properties))))
     input_list = [(inp, prop_input) for inp in input_list]
+    print(input_list)
 
     start_time = time.time()
-    result_df = generate_strategy(input_list)
+    result_df = generator.generate(input_list)
     elapsed_time = time.time() - start_time
     print(f"Generation completed in {elapsed_time:.2f} seconds.")
     print(f"Generated {len(result_df)} molecules.")

@@ -43,6 +43,19 @@ if __name__ == "__main__":
         help="Randomly generate data instead of using the frequency.",
         action="store_true",
     )
+    parser.add_argument(
+        "--ranking_mode",
+        type=str,
+        default="frequency",
+        choices=["frequency", "hybrid", "qed_sa", "mmpa_qed_sa", "rank_filtered_mmpa_qed_sa", "mmpa_hybrid"],
+        help="Sampling ranking strategy.",
+    )
+    parser.add_argument(
+        "--min_frequency",
+        type=int,
+        default=10,
+        help="Min frequency for filtering replacement",
+    )
     parser.add_argument("--seed", type=int, default=0)
     args = parser.parse_args()
 
@@ -59,7 +72,12 @@ if __name__ == "__main__":
     num_sample_each_mol = 100
 
     # Set paths
-    filename = "random.csv" if args.random else "frequency.csv"
+    if args.random:
+        filename = "random.csv"
+    else:
+        filename = f"{args.ranking_mode}.csv"
+        if args.ranking_mode == "rank_filtered_mmpa_qed_sa":
+            filename = f"{args.ranking_mode}_{args.min_frequency}.csv"
     output_path = args.result_dir / args.model_name / str(args.target_idx) / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -75,6 +93,8 @@ if __name__ == "__main__":
         smis=input_list,
         replacement_lib_path="/home/share/DATA/swkim/DeepBioisostere/replacement_library.csv",
         generate_all_attachments=True,
+        ranking_mode=args.ranking_mode,
+        min_frequency=args.min_frequency,
     )
     gen_df = sampler.sample(num_samples=num_sample_each_mol, random_gen=args.random)
 

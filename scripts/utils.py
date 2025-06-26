@@ -125,6 +125,20 @@ def generate_path_setting(args):
 
     return args
 
+def exact_query_from_smiles(smiles: str) -> str:
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError("Invalid SMILES")
+
+    # Parameter object
+    params = rdmolops.AdjustQueryParameters()
+    params.adjustHs     = True      # Fix H count
+    params.adjustDegree = True      # Fix valence
+
+    # Create strict QueryMol
+    qmol = rdmolops.AdjustQueryProperties(mol, params)
+
+    return Chem.MolToSmiles(qmol, canonical=True)
 
 class FrequencySampler:
     def __init__(
@@ -319,6 +333,13 @@ class FrequencySampler:
                         _new_frag_numbered += (
                             f"[*:{perm[i] + 1}]" + _new_frag_broken[i + 1]
                         )
+
+                    try:
+                        _old_frag_numbered = exact_query_from_smiles(_old_frag_numbered)
+                        _new_frag_numbered = exact_query_from_smiles(_new_frag_numbered)
+                    except:
+                        print(f"Making exact reaction SMILES failed: R:{_old_frag_numbered} / P: {_new_frag_numbered}")
+                        continue
 
                     # _idx = old_idx_matches[0]
                     # _old_frag = _old_frag[:_idx] + f"[*:{i+1}]" + _old_frag[_idx+3:]

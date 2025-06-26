@@ -1,7 +1,6 @@
 import argparse
 import multiprocessing as mp
 import os
-import shutil
 import subprocess
 from itertools import islice
 from typing import Dict, List, Optional, Tuple
@@ -264,9 +263,6 @@ def process_docking_tasks(
                 )
             for i, path_result in enumerate(pdbqt_paths_results):
                 prepared_ligand_batch_paths[i] = path_result
-        else:  # Handle case where num_processes_for_ligprep might be 0 or ligand_prep_args_list is empty
-            for i in range(len(tasks_for_this_batch)):
-                prepared_ligand_batch_paths[i] = None
 
     vina_config_path = os.path.join(
         batch_processing_scratch_dir, "vina_batch_config.txt"
@@ -286,7 +282,7 @@ def process_docking_tasks(
         "\nnum_modes = 1",
         f"log = {os.path.abspath(vina_run_log_path)}",
         "thread = 8000",
-        "seed = 42",
+        "seed = 0",
     ]
     with open(vina_config_path, "w") as f_cfg:
         f_cfg.write("\n".join(vina_config_content))
@@ -312,18 +308,12 @@ def process_docking_tasks(
             continue
 
         prepared_ligand_basename = os.path.basename(batch_prepared_ligand_path)
-        expected_docked_filename_1 = (
+        expected_docked_filename = (
             os.path.splitext(prepared_ligand_basename)[0] + "_out.pdbqt"
         )
-        expected_docked_filename_2 = prepared_ligand_basename
-
         docked_output_path_in_batch_dir = os.path.join(
-            batch_vina_outputs_dir, expected_docked_filename_1
+            batch_vina_outputs_dir, expected_docked_filename
         )
-        if not os.path.exists(docked_output_path_in_batch_dir):
-            docked_output_path_in_batch_dir = os.path.join(
-                batch_vina_outputs_dir, expected_docked_filename_2
-            )
 
         if os.path.exists(docked_output_path_in_batch_dir):
             score = parse_vina_gpu_output(docked_output_path_in_batch_dir)
@@ -336,7 +326,7 @@ def process_docking_tasks(
         else:
             result_template["error"] = (
                 (result_template["error"] or "")
-                + f";Docked output file not found from options: {expected_docked_filename_1} or {expected_docked_filename_2}"
+                + f";Docked output file not found from options: {expected_docked_filename}"
             )
         all_individual_results.append(result_template)
     return all_individual_results

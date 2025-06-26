@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import random
@@ -8,14 +9,8 @@ from collections import defaultdict
 import pandas as pd
 import rdkit.Chem as Chem
 import rdkit.Chem.AllChem as AllChem
-import pandas as pd
-import logging
-import os
-import subprocess
-import itertools
+from property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 from rdkit.Chem import BRICS
-
-from property import PROPERTIES, calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 
 class Logger(logging.Logger):
@@ -132,10 +127,24 @@ def generate_path_setting(args):
 
 
 class FrequencySampler:
-    def __init__(self, smis: list[str], replacement_lib_path: str, generate_all_attachments: bool = True):
+    def __init__(
+        self,
+        smis: list[str],
+        replacement_lib_path: str,
+        generate_all_attachments: bool = True,
+        ranking_mode: str = "frequency",
+        min_frequency: int = 10,
+    ):
         self.smis = smis
         self.replacement_lib = pd.read_csv(replacement_lib_path, sep="\t")
+        self.mmpa_lib = pd.read_csv(
+            "/home/share/DATA/swkim/DeepBioisostere/mmpa_replacement_library.csv",
+            sep="\t",
+            low_memory=False,
+        )
         self.generate_all_attachments = generate_all_attachments
+        self.ranking_mode = ranking_mode
+        self.min_frequency = min_frequency
         return
 
     def filter_frag(self, num_atoms, broken_frag, max_num_change_atoms=12):
@@ -146,10 +155,23 @@ class FrequencySampler:
         else:
             return True
 
+    def _normalize_sa(self, sa_value):
+        # SA comes roughly between 1 (easy) and 10 (hard)
+        # Normalize to [0,1], lower is better
+        return (10.0 - sa_value) / 9.0
+
+    def _normalize(self, arr):
+        arr = pd.Series(arr)
+        minv, maxv = arr.min(), arr.max()
+        if maxv == minv:
+            return [0.0] * len(arr)  # or 1.0, choose consistent with use
+        return (arr - minv) / (maxv - minv)
+
     def sample(self, num_samples: int, random_gen: bool = False) -> list[str]:
         """
         Args:
             num_samples: (int) number of SMILES per input molecule.
+        ranking_mode: 'frequency', 'qed_sa', or 'hybrid' (default='frequency')
         Returns:
             generation_df: (pd.DataFrame) DataFrame containing sampled SMILES.
         """
@@ -200,22 +222,71 @@ class FrequencySampler:
                 continue
 
             # 4. sample from replacement library
-            # NOTE: sampling based on frequency
             sampled_replacements = sampled_replacements.sample(frac=1).reset_index(
                 drop=True
             )
             if not random_gen:
-                sampled_replacements = sampled_replacements.sort_values(
-                    by="FREQUENCY", ascending=False
-                ).reset_index(drop=True)
+                if self.ranking_mode == "mmpa_qed_sa":
+                    rep = sampled_replacements.merge(
+                        self.mmpa_lib[["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean"]],
+                        on=["OLD-FRAG", "NEW-FRAG"],
+                        how="left",
+                    )
+                    sa_norm = rep["sa_mean"].fillna(0.0)
+                    rep["QED_SA_SCORE"] = rep["qed_mean"].fillna(0.0) + sa_norm
+                    sampled_replacements = rep.sort_values(
+                        "QED_SA_SCORE", ascending=False
+                    ).reset_index(drop=True)
+                elif self.ranking_mode == "rank_filtered_mmpa_qed_sa":
+                    rep = sampled_replacements.merge(
+                        self.mmpa_lib[
+                            ["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean", "FREQUENCY"]
+                        ],
+                        on=["OLD-FRAG", "NEW-FRAG"],
+                        how="left",
+                        suffixes=("", "_mmpa"),
+                    )
+                    # filter FREQUENCY < 10
+                    rep = rep[rep["FREQUENCY_mmpa"] >= self.min_frequency]
+                    sa_norm = rep["sa_mean"].fillna(0.0)
+                    rep["QED_SA_SCORE"] = rep["qed_mean"].fillna(0.0) + sa_norm
+                    sampled_replacements = rep.sort_values(
+                        "QED_SA_SCORE", ascending=False
+                    ).reset_index(drop=True)
+                elif self.ranking_mode == "mmpa_hybrid":
+                    rep = sampled_replacements.merge(
+                        self.mmpa_lib[
+                            ["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean", "FREQUENCY"]
+                        ],
+                        on=["OLD-FRAG", "NEW-FRAG"],
+                        how="left",
+                        suffixes=("", "_mmpa"),
+                    )
+                    sa_norm = rep["sa_mean"].fillna(0.0)
+                    qedsa = rep["qed_mean"].fillna(0.0) + sa_norm
+                    qedsa_norm = (qedsa - qedsa.min()) / (
+                        qedsa.max() - qedsa.min() + 1e-8
+                    )
+                    freq_norm = (
+                        rep["FREQUENCY"].fillna(1) - rep["FREQUENCY"].min()
+                    ) / (rep["FREQUENCY"].max() - rep["FREQUENCY"].min() + 1e-8)
+                    rep["HYBRID_SCORE"] = qedsa_norm + freq_norm
+                    sampled_replacements = rep.sort_values(
+                        "HYBRID_SCORE", ascending=False
+                    ).reset_index(drop=True)
+                else:
+                    # default: frequency
+                    sampled_replacements = sampled_replacements.sort_values(
+                        by="FREQUENCY", ascending=False
+                    ).reset_index(drop=True)
 
             num_gen_mol = 0
             pattern = r"\[(1[0-6]|[1-9])\*\]"
             for _, row in sampled_replacements.iterrows():
                 old_frag, new_frag = row["OLD-FRAG"], row["NEW-FRAG"]
                 # remove isotope tag, possibly mutiple isotope tages
-                old_frag = re.sub(pattern, '[*]', old_frag)
-                new_frag = re.sub(pattern, '[*]', new_frag)
+                old_frag = re.sub(pattern, "[*]", old_frag)
+                new_frag = re.sub(pattern, "[*]", new_frag)
 
                 perms = list(itertools.permutations(list(range(old_frag.count("[*]")))))
 
@@ -240,12 +311,14 @@ class FrequencySampler:
                     #     _new_frag_broken = _new_frag_broken[1:]
 
                     _old_frag_numbered = _old_frag_broken[0]
-                    for i in range(len(_old_frag_broken)-1):
-                        _old_frag_numbered += f"[*:{i+1}]" + _old_frag_broken[i+1]
+                    for i in range(len(_old_frag_broken) - 1):
+                        _old_frag_numbered += f"[*:{i + 1}]" + _old_frag_broken[i + 1]
 
                     _new_frag_numbered = _new_frag_broken[0]
-                    for i in range(len(_new_frag_broken)-1):
-                        _new_frag_numbered += f"[*:{perm[i]+1}]" + _new_frag_broken[i+1]
+                    for i in range(len(_new_frag_broken) - 1):
+                        _new_frag_numbered += (
+                            f"[*:{perm[i] + 1}]" + _new_frag_broken[i + 1]
+                        )
 
                     # _idx = old_idx_matches[0]
                     # _old_frag = _old_frag[:_idx] + f"[*:{i+1}]" + _old_frag[_idx+3:]
@@ -264,7 +337,7 @@ class FrequencySampler:
                 for replacement in replacements:
                     # 5. generate SMILES
                     rxn = AllChem.ReactionFromSmarts(replacement)
-                    gen_mols = rxn.RunReactants((mol,))     # tup of tup
+                    gen_mols = rxn.RunReactants((mol,))  # tup of tup
                     gen_mols = list(gen_mols)
 
                     if len(gen_mols) == 0:
@@ -274,7 +347,7 @@ class FrequencySampler:
                     gen_mol = gen_mols[0][0]
                     try:
                         Chem.SanitizeMol(gen_mol)
-                    except Exception as e:
+                    except Exception:
                         continue
 
                     if gen_mol is None:

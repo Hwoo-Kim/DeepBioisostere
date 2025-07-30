@@ -388,7 +388,12 @@ def main(args: argparse.Namespace):
     try:
         df[INPUT_MOL_IDX_COL] = df[INPUT_MOL_IDX_COL].astype(int).astype(str)
     except Exception:
-        df[INPUT_MOL_IDX_COL] = ((df.index // 100) + 1).astype(int).astype(str)
+        # rewrite index based on the index of unique index of input-mol-smi
+        unique_input_smis = df[INPUT_MOL_SMI_COL].unique()
+        smi2index = {smi: i for i, smi in enumerate(unique_input_smis)}
+        df[INPUT_MOL_IDX_COL] = (
+            df[INPUT_MOL_SMI_COL].map(smi2index).astype(int).astype(str)
+        )
 
     if GEN_MOL_IDX_COL not in df.columns:
         df[GEN_MOL_IDX_COL] = df.groupby(INPUT_MOL_IDX_COL).cumcount().astype(str)
@@ -406,6 +411,7 @@ def main(args: argparse.Namespace):
             )
             exit(1)
         df[col_name] = df[col_name].astype(str)
+    df.to_csv("input_data.csv", index=False)
 
     # prepare receptor
     receptor_pdb_original_path = os.path.join(

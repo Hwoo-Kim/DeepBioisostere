@@ -39,15 +39,10 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
-        "--random",
-        help="Randomly generate data instead of using the frequency.",
-        action="store_true",
-    )
-    parser.add_argument(
         "--ranking_mode",
         type=str,
         default="frequency",
-        choices=["frequency", "hybrid", "qed_sa", "mmpa_qed_sa", "rank_filtered_mmpa_qed_sa", "mmpa_hybrid"],
+        choices=["frequency", "random", "rank_filtered_mmpa_qed_sa"],
         help="Sampling ranking strategy.",
     )
     parser.add_argument(
@@ -72,22 +67,21 @@ if __name__ == "__main__":
     num_sample_each_mol = 100
 
     # Set paths
-    if args.random:
-        filename = "random.csv"
-    else:
-        filename = f"{args.ranking_mode}.csv"
-        if args.ranking_mode == "rank_filtered_mmpa_qed_sa":
-            filename = f"{args.ranking_mode}_{args.min_frequency}.csv"
+    filename = f"{args.ranking_mode}.csv"
+    if args.ranking_mode == "rank_filtered_mmpa_qed_sa":
+        filename = f"{args.ranking_mode}_{args.min_frequency}.csv"
     output_path = args.result_dir / args.model_name / str(args.target_idx) / filename
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # make inputs
     df = pd.read_csv(args.sbdd_gen_csv, low_memory=False)
     target_df = df[df["test_idx"] == args.target_idx]
-    target_df = target_df.copy()
+    target_df: pd.DataFrame = target_df.copy()
     target_df.dropna(subset=["SMILES"], inplace=True)
+    target_df.drop_duplicates(subset=["SMILES"], inplace=True)
     target_df["SA"] = target_df["SA"].apply(unnormalize_sa)
     input_list = target_df["SMILES"].tolist()
+    assert len(input_list) == len(set(input_list)), "Input SMILES must be unique."
 
     sampler = FrequencySampler(
         smis=input_list,
@@ -96,7 +90,7 @@ if __name__ == "__main__":
         ranking_mode=args.ranking_mode,
         min_frequency=args.min_frequency,
     )
-    gen_df = sampler.sample(num_samples=num_sample_each_mol, random_gen=args.random)
+    gen_df = sampler.sample(num_samples=num_sample_each_mol)
 
     merged_df = gen_df.merge(
         target_df[["SMILES", "QED", "SA"]],
@@ -109,5 +103,9 @@ if __name__ == "__main__":
     merged_df["QED_DIFF"] = merged_df["QED"] - merged_df["QED_ref"]
     merged_df["SA_DIFF"] = merged_df["SA"] - merged_df["SA_ref"]
     merged_df = merged_df.drop(["SMILES", "QED_ref", "SA_ref"], axis=1)
+    if args.ranking_mode == "rank_filtered_mmpa_qed_sa":
+        assert (merged_df["USED-REPLACEMENT-FREQ"] >= args.min_frequency).all(), (
+            "Used replacement frequency must be greater than min_frequency."
+        )
 
     merged_df.to_csv(output_path, index=False)

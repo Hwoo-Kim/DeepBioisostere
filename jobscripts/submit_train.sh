@@ -114,6 +114,7 @@ attach_score_hid_dim=128
 num_attach_score_layer=3
 frag_message_passing_num_layer=2
 dropout=0.2
+use_subgraph_AMPN=false
 
 # 4. Main Command Setting
 MAIN_CMD="python -u train_main.py
@@ -178,6 +179,9 @@ if $lr_scheduler_can_terminate; then
 fi
 if $print_loss; then
     MAIN_CMD=$MAIN_CMD" --print_loss"
+fi
+if $use_subgraph_AMPN; then
+    MAIN_CMD=$MAIN_CMD" --use_subgraph_AMPN"
 fi
 
 # 5. Main Operation

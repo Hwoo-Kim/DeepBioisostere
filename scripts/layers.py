@@ -141,11 +141,13 @@ class AMPN(nn.Module):
         mol_node_features: int,
         atom_embedding: MPNNEmbedding,
         frag_embedding: MPNNEmbedding,
+        use_subgraph_AMPN: bool,
     ):
         super().__init__()
         self.mol_node_features = mol_node_features
         self.atom_embedding = atom_embedding
         self.frag_embedding = frag_embedding
+        self.use_subgraph_AMPN = use_subgraph_AMPN
 
     def forward(self, data: PairData):
         """
@@ -166,13 +168,15 @@ class AMPN(nn.Module):
         x_n_emb = self.atom_embedding(
             data.x_n[:, : self.mol_node_features], data.edge_index_n, data.edge_attr_n
         )
-        x_f_emb = self.frag_embedding(
-            data.x_n, data.edge_index_n_w_dummy, data.edge_attr_n_w_dummy
-        )
+        if self.use_subgraph_AMPN:
+            x_f_emb = self.frag_embedding(
+                data.x_n, data.edge_index_n_w_dummy, data.edge_attr_n_w_dummy
+            )
+            return self.node_to_frag_level(data, x_n_emb, x_f_emb)
+        else:
+            return self.node_to_frag_level(data, x_n_emb)
 
-        return self.node_to_frag_level(data, x_n_emb, x_f_emb)
-
-    def node_to_frag_level(self, data: PairData, x_n_emb, x_f_emb):
+    def node_to_frag_level(self, data: PairData, x_n_emb, x_f_emb=None):
         """
         Getting fragment-level embeddings from node featrues.
 
@@ -192,10 +196,17 @@ class AMPN(nn.Module):
         """
 
         h_f = scatter_sum(src=x_n_emb, index=data.x_f, dim=0)
-        s_f = scatter_sum(src=x_f_emb, index=data.x_f, dim=0)
+        if self.use_subgraph_AMPN:
+            s_f = scatter_sum(src=x_f_emb, index=data.x_f, dim=0)
+        else:
+            s_f = None
 
-        data.x_n = torch.cat([x_n_emb, x_f_emb], dim=1).float()
-        data.x_f = torch.cat([h_f, s_f], dim=1)
+        if self.use_subgraph_AMPN:
+            data.x_n = torch.cat([x_n_emb, x_f_emb], dim=1).float()
+            data.x_f = torch.cat([h_f, s_f], dim=1)
+        else:
+            data.x_n = x_n_emb.float()
+            data.x_f = h_f
 
         data.edge_attr_f = data.x_n[data.edge_attr_f.t().contiguous()].sum(
             dim=0

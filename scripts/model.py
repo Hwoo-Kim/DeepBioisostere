@@ -87,7 +87,7 @@ class DeepBioisostere(nn.Module):
             node_feature_dim=self.mol_node_hid_dim
             + self.frag_node_hid_dim
             + self.properties_dim * len(self.properties),
-            edge_feature_dim=self.mol_node_hid_dim * 2,
+            edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
             node_hidden_dim=self.mol_node_hid_dim,
             edge_hidden_dim=self.mol_node_hid_dim,
             num_layer=self.frag_message_passing_num_layer,
@@ -121,7 +121,7 @@ class DeepBioisostere(nn.Module):
 
         # 4. Attachment Prediction
         self.attach_scoring_model = FeedForward(
-            in_dim=self.mol_node_hid_dim * 2 + self.frag_node_hid_dim,
+            in_dim=self.mol_node_hid_dim + self.frag_node_hid_dim * 2,
             out_dim=1,
             hidden_dims=[
                 self.attach_score_hid_dim for _ in range(self.num_attach_score_layer)

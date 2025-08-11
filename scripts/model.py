@@ -89,7 +89,7 @@ class DeepBioisostere(nn.Module):
                 node_feature_dim=self.mol_node_hid_dim
                 + self.frag_node_hid_dim
                 + self.properties_dim * len(self.properties),
-                edge_feature_dim=self.mol_node_hid_dim * 2,
+                edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
                 node_hidden_dim=self.mol_node_hid_dim,
                 edge_hidden_dim=self.mol_node_hid_dim,
                 num_layer=self.frag_message_passing_num_layer,
@@ -99,7 +99,7 @@ class DeepBioisostere(nn.Module):
             frag_message_passing = MPNNEmbedding(
                 node_feature_dim=self.mol_node_hid_dim
                 + self.properties_dim * len(self.properties),
-                edge_feature_dim=self.mol_node_hid_dim * 2,
+                edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
                 node_hidden_dim=self.mol_node_hid_dim,
                 edge_hidden_dim=self.mol_node_hid_dim,
                 num_layer=self.frag_message_passing_num_layer,

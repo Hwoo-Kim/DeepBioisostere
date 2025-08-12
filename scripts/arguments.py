@@ -210,6 +210,11 @@ def get_train_args_parser():
     parser.add_argument(
         "--dropout", type=float, help="Dropout probability for train phase."
     )
+    parser.add_argument(
+        "--use_subgraph_AMPN",
+        action="store_true",
+        help="Whether using AMPN for fragment-level embedding in a query molecule.",
+    )
 
     # 4. Parse arguments
     args = parser.parse_args()

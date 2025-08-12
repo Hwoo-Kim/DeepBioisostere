@@ -142,12 +142,14 @@ class AMPN(nn.Module):
         atom_embedding: MPNNEmbedding,
         frag_embedding: MPNNEmbedding,
         use_subgraph_AMPN: bool,
+        upscaler: nn.Module = None,
     ):
         super().__init__()
         self.mol_node_features = mol_node_features
         self.atom_embedding = atom_embedding
         self.frag_embedding = frag_embedding
         self.use_subgraph_AMPN = use_subgraph_AMPN
+        self.upscaler = upscaler
 
     def forward(self, data: PairData):
         """
@@ -172,11 +174,11 @@ class AMPN(nn.Module):
             x_f_emb = self.frag_embedding(
                 data.x_n, data.edge_index_n_w_dummy, data.edge_attr_n_w_dummy
             )
-            return self.node_to_frag_level(data, x_n_emb, x_f_emb)
+            return self.atom_to_frag_level(data, x_n_emb, x_f_emb)
         else:
-            return self.node_to_frag_level(data, x_n_emb)
+            return self.atom_to_frag_level(data, x_n_emb)
 
-    def node_to_frag_level(self, data: PairData, x_n_emb, x_f_emb=None):
+    def atom_to_frag_level(self, data: PairData, x_n_emb, x_f_emb=None):
         """
         Getting fragment-level embeddings from node featrues.
 
@@ -198,20 +200,15 @@ class AMPN(nn.Module):
         h_f = scatter_sum(src=x_n_emb, index=data.x_f, dim=0)
         if self.use_subgraph_AMPN:
             s_f = scatter_sum(src=x_f_emb, index=data.x_f, dim=0)
-        else:
-            s_f = None
-
-        if self.use_subgraph_AMPN:
             data.x_n = torch.cat([x_n_emb, x_f_emb], dim=1).float()
             data.x_f = torch.cat([h_f, s_f], dim=1)
         else:
-            data.x_n = x_n_emb.float()
-            data.x_f = h_f
+            data.x_n = self.upscaler(x_n_emb.float())
+            data.x_f = self.upscaler(h_f.float())
 
         data.edge_attr_f = data.x_n[data.edge_attr_f.t().contiguous()].sum(
             dim=0
         )  # [2,E_f] -> [2,E_f,F_n] -> [E_f,F_n]
-        # x_n_emb = torch.mul(x_n_emb, data.x_n_mask.unsqueeze(-1)) # TODO: 마스킹 하는게 맞나?
 
         return data
 

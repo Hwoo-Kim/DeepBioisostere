@@ -84,29 +84,26 @@ class DeepBioisostere(nn.Module):
             num_layer=self.frag_num_emb_layer,
             dropout=self.dropout,
         )
+        frag_message_passing = MPNNEmbedding(
+            node_feature_dim=self.mol_node_hid_dim
+            + self.frag_node_hid_dim
+            + self.properties_dim * len(self.properties),
+            edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
+            node_hidden_dim=self.mol_node_hid_dim,
+            edge_hidden_dim=self.mol_node_hid_dim,
+            num_layer=self.frag_message_passing_num_layer,
+            dropout=self.dropout,
+        )
+
         if self.use_subgraph_AMPN:
-            frag_message_passing = MPNNEmbedding(
-                node_feature_dim=self.mol_node_hid_dim
-                + self.frag_node_hid_dim
-                + self.properties_dim * len(self.properties),
-                edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
-                node_hidden_dim=self.mol_node_hid_dim,
-                edge_hidden_dim=self.mol_node_hid_dim,
-                num_layer=self.frag_message_passing_num_layer,
-                dropout=self.dropout,
-            )
+            self.upscaler = None
         else:
-            frag_message_passing = MPNNEmbedding(
-                node_feature_dim=self.mol_node_hid_dim
-                + self.properties_dim * len(self.properties),
-                edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
-                node_hidden_dim=self.mol_node_hid_dim,
-                edge_hidden_dim=self.mol_node_hid_dim,
-                num_layer=self.frag_message_passing_num_layer,
-                dropout=self.dropout,
+            self.upscaler = nn.Linear(
+                self.mol_node_hid_dim,
+                self.mol_node_hid_dim + self.frag_node_hid_dim
             )
 
-        self.ampn = AMPN(self.mol_node_features, atom_embedding, frag_embedding, self.use_subgraph_AMPN)
+        self.ampn = AMPN(self.mol_node_features, atom_embedding, frag_embedding, self.use_subgraph_AMPN, self.upscaler)
         self.fmpn = FMPN(frag_message_passing)
         self.frag_embedding = frag_embedding
 

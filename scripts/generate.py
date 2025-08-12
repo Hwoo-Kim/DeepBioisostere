@@ -120,7 +120,7 @@ class Generator:
 
     @torch.no_grad()
     def generate(
-        self, input_list: List[Tuple[SMILES, Dict[str, float]]]
+        self, input_list: List[Tuple[SMILES, Dict[str, float]]], verbose=False
     ) -> pd.DataFrame:
         """
         Generate modified molecules for a given SMILES list.
@@ -180,7 +180,11 @@ class Generator:
 
         # Main Generation Part
         batch_result = []
-        for batch_idx, batch in enumerate(data_dl):
+        it = enumerate(data_dl)
+        if verbose:
+            from tqdm import tqdm
+            it = tqdm(it, total=len(data_dl))
+        for batch_idx, batch in it:
             data = batch["data"].to(self.device)
             if self.conditioner:
                 for prop in self.properties:

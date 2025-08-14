@@ -537,6 +537,8 @@ class InferenceDataset(Dataset):
     def parse_smiles(smi, verbose=False) -> Union[PairData, None]:
         # Read input smiles
         mol = Chem.MolFromSmiles(smi)
+        if mol is None:
+            return None
         data, broken_mol = from_mol(mol, type="Mol", return_broken_mol=True, original_smiles=smi)
 
         # if mol.GetNumAtoms() == broken_mol.GetNumAtoms():  # no BRICS bond

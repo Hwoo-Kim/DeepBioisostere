@@ -127,13 +127,13 @@ if __name__ == "__main__":
     # make inputs
     df = pd.read_csv(args.sbdd_gen_csv, low_memory=False)
     target_df = df[df["test_idx"] == args.target_idx]
-    target_df = target_df.copy()
-
-    # apply unnormalize function to SA property
-    target_df["SA"] = target_df["SA"].apply(unnormalize_sa)
+    target_df: pd.DataFrame = target_df.copy()
     target_df.dropna(subset=["SMILES"], inplace=True)
-
+    target_df.drop_duplicates(subset=["SMILES"], inplace=True)
+    target_df["SA"] = target_df["SA"].apply(unnormalize_sa)
     input_list = target_df["SMILES"].tolist()
+    assert len(input_list) == len(set(input_list)), "Input SMILES must be unique."
+
     prop_input = dict(zip(args.properties, list(map(float, args.target_properties))))
     input_list = [(inp, prop_input) for inp in input_list]
     print(input_list)

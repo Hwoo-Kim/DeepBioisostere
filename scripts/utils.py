@@ -14,6 +14,7 @@ from rdkit.Chem import BRICS
 
 from scripts.property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 
+
 class Logger(logging.Logger):
     def __init__(self, name, save_path=None):
         super().__init__(name=name)
@@ -126,34 +127,38 @@ def generate_path_setting(args):
 
     return args
 
+
 # def exact_query_from_smiles(smiles: str) -> str:
 #     mol = Chem.MolFromSmiles(smiles)
 #     if mol is None:
 #         raise ValueError("Invalid SMILES")
-# 
+#
 #     # Parameter object
 #     params = rdmolops.AdjustQueryParameters()
 #     params.adjustHs           = True
 #     params.adjustDegree       = True
-# 
+#
 #     # Create strict QueryMol
 #     qmol = rdmolops.AdjustQueryProperties(mol, params)
-# 
+#
 #     return Chem.MolToSmarts(qmol)
 
-def process_isotopes_in_smarts(smarts: str, atom_h_counts: list, isotope_indices: list) -> str:
+
+def process_isotopes_in_smarts(
+    smarts: str, atom_h_counts: list, isotope_indices: list
+) -> str:
     """
     Convert isotope notation in SMARTS to regular element symbols.
     Isotopes are represented without hydrogen counts, using only element symbols.
-    
+
     Args:
         smarts (str): SMARTS string containing isotopes
         atom_h_counts (list): List of hydrogen counts for each atom
         isotope_indices (list): List of indices of isotope atoms
-        
+
     Returns:
         str: SMARTS with isotopes converted to regular elements
-        
+
     Examples:
         >>> process_isotopes_in_smarts("[18#9]")
         "[F]"
@@ -163,65 +168,66 @@ def process_isotopes_in_smarts(smarts: str, atom_h_counts: list, isotope_indices
         "[F]"
     """
     # Isotope pattern: [number#atomic_number] -> [element_symbol]
-    isotope_pattern = re.compile(r'\[(\d+)#(\d+)\]')
-    
+    isotope_pattern = re.compile(r"\[(\d+)#(\d+)\]")
+
     def replace_isotope(match):
         isotope_num = match.group(1)
         atomic_num = int(match.group(2))
-        
+
         # Get element symbol
         pt = Chem.GetPeriodicTable()
         element_symbol = pt.GetElementSymbol(atomic_num)
-        
-        return f'[{element_symbol}]'
-    
+
+        return f"[{element_symbol}]"
+
     # Already converted isotope pattern: [number_element_symbol] -> [element_symbol]
-    converted_isotope_pattern = re.compile(r'\[(\d+)([A-Z][a-z]?)\]')
-    
+    converted_isotope_pattern = re.compile(r"\[(\d+)([A-Z][a-z]?)\]")
+
     def replace_converted_isotope(match):
         isotope_num = match.group(1)
         element_symbol = match.group(2)
-        
-        return f'[{element_symbol}]'
-    
+
+        return f"[{element_symbol}]"
+
     # Atomic number pattern: [#atomic_number] -> [element_symbol]
-    atomic_num_pattern = re.compile(r'\[#(\d+)\]')
-    
+    atomic_num_pattern = re.compile(r"\[#(\d+)\]")
+
     def replace_atomic_num(match):
         atomic_num = int(match.group(1))
-        
+
         # Get element symbol
         pt = Chem.GetPeriodicTable()
         element_symbol = pt.GetElementSymbol(atomic_num)
-        
-        return f'[{element_symbol}]'
-    
+
+        return f"[{element_symbol}]"
+
     # 1. Process isotopes (number#atomic_number format)
     result = isotope_pattern.sub(replace_isotope, smarts)
-    
+
     # 2. Process already converted isotopes (number_element_symbol format)
     result = converted_isotope_pattern.sub(replace_converted_isotope, result)
-    
+
     # 3. Process atomic numbers
     result = atomic_num_pattern.sub(replace_atomic_num, result)
-    
+
     return result
+
 
 def exact_query_from_smiles(smiles: str) -> str:
     """
     Convert SMILES to SMARTS with explicit hydrogen representation.
-    
+
     This function takes a SMILES string and converts it to SMARTS format where
     implicit hydrogens are explicitly represented. It preserves chirality,
     ring information, and bond order while adding explicit hydrogen counts
     to each atom.
-    
+
     Args:
         smiles (str): Input SMILES string
-        
+
     Returns:
         str: SMARTS with explicit hydrogen representation
-        
+
     Examples:
         >>> hydrogenated_smarts_with_bonds_and_H0("CCC")
         "[CH3]-[CH2]-[CH3]"
@@ -247,35 +253,38 @@ def exact_query_from_smiles(smiles: str) -> str:
         h_count = atom.GetNumImplicitHs()
         is_aromatic = atom.GetIsAromatic()
         isotope = atom.GetIsotope()
-        
+
         atom_h_counts.append(h_count)
         atom_aromatic.append(is_aromatic)
-        
+
         if isotope > 0:
             isotope_indices.append(i)
         if atom.GetAtomicNum() == 0:
             wildcard_indices.append(i)
-    
+
     # Map wildcard indices to atom map numbers
-    wildcard_map = {idx: n+1 for n, idx in enumerate(wildcard_indices)}
+    wildcard_map = {idx: n + 1 for n, idx in enumerate(wildcard_indices)}
 
     # 3) Generate basic SMARTS using MolToSmarts (including bond information)
     smarts = Chem.MolToSmarts(mol)
     pt = Chem.GetPeriodicTable()
-    pattern = re.compile(r'\[#(?P<at>\d+)(?P<st>@@|@)?(?P<charge>[+-])?(?P<explicit_h>H)?(?::(?P<mp>\d+))?\]')
+    pattern = re.compile(
+        r"\[#(?P<at>\d+)(?P<st>@@|@)?(?P<charge>[+-])?(?P<explicit_h>H)?(?::(?P<mp>\d+))?\]"
+    )
     atom_counter = 0
+
     def replace_atom_query(match):
         nonlocal atom_counter
-        at = int(match.group('at'))
-        st = match.group('st') or ''
-        charge = match.group('charge') or ''
-        explicit_h = match.group('explicit_h') or ''
-        mp = match.group('mp') or ''
+        at = int(match.group("at"))
+        st = match.group("st") or ""
+        charge = match.group("charge") or ""
+        explicit_h = match.group("explicit_h") or ""
+        mp = match.group("mp") or ""
         # Handle wildcards (atomic number 0)
         if at == 0:
             # Map SMILES index to atom map number
-            map_num = wildcard_map.get(atom_counter, atom_counter+1)
-            result = f'[*:{map_num}]'
+            map_num = wildcard_map.get(atom_counter, atom_counter + 1)
+            result = f"[*:{map_num}]"
             atom_counter += 1
             return result
         # Calculate actual atom index while skipping isotope atoms
@@ -292,12 +301,14 @@ def exact_query_from_smiles(smiles: str) -> str:
         sym = pt.GetElementSymbol(at)
         if actual_atom_idx < len(atom_aromatic) and atom_aromatic[actual_atom_idx]:
             sym = sym.lower()
-        result = f'[{sym}{st}{charge}H{h_count}{":"+mp if mp else ""}]'
+        result = f"[{sym}{st}{charge}H{h_count}{':' + mp if mp else ''}]"
         atom_counter += 1
         return result
+
     result = pattern.sub(replace_atom_query, smarts)
     result = process_isotopes_in_smarts(result, atom_h_counts, isotope_indices)
     return result
+
 
 class FrequencySampler:
     def __init__(
@@ -340,11 +351,11 @@ class FrequencySampler:
             return [0.0] * len(arr)  # or 1.0, choose consistent with use
         return (arr - minv) / (maxv - minv)
 
-    def sample(self, num_samples: int, random_gen: bool = False, verbose: bool = False) -> pd.DataFrame:
+    def sample(self, num_samples: int, verbose: bool = False) -> pd.DataFrame:
         """
         Args:
             num_samples: (int) number of SMILES per input molecule.
-        ranking_mode: 'frequency', 'qed_sa', or 'hybrid' (default='frequency')
+            ranking_mode: 'frequency', 'random', or 'rank_filtered_mmpa_qed_sa' (default='frequency')
         Returns:
             generation_df: (pd.DataFrame) DataFrame containing sampled SMILES.
         """
@@ -399,60 +410,33 @@ class FrequencySampler:
             sampled_replacements = sampled_replacements.sample(frac=1).reset_index(
                 drop=True
             )
-            if not random_gen:
-                if self.ranking_mode == "mmpa_qed_sa":
-                    rep = sampled_replacements.merge(
-                        self.mmpa_lib[["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean"]],
-                        on=["OLD-FRAG", "NEW-FRAG"],
-                        how="left",
-                    )
-                    sa_norm = rep["sa_mean"].fillna(0.0)
-                    rep["QED_SA_SCORE"] = rep["qed_mean"].fillna(0.0) + sa_norm
-                    sampled_replacements = rep.sort_values(
-                        "QED_SA_SCORE", ascending=False
-                    ).reset_index(drop=True)
-                elif self.ranking_mode == "rank_filtered_mmpa_qed_sa":
-                    rep = sampled_replacements.merge(
-                        self.mmpa_lib[
-                            ["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean", "FREQUENCY"]
-                        ],
-                        on=["OLD-FRAG", "NEW-FRAG"],
-                        how="left",
-                        suffixes=("", "_mmpa"),
-                    )
-                    # filter FREQUENCY < 10
-                    rep = rep[rep["FREQUENCY_mmpa"] >= self.min_frequency]
-                    sa_norm = rep["sa_mean"].fillna(0.0)
-                    rep["QED_SA_SCORE"] = rep["qed_mean"].fillna(0.0) + sa_norm
-                    sampled_replacements = rep.sort_values(
-                        "QED_SA_SCORE", ascending=False
-                    ).reset_index(drop=True)
-                elif self.ranking_mode == "mmpa_hybrid":
-                    rep = sampled_replacements.merge(
-                        self.mmpa_lib[
-                            ["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean", "FREQUENCY"]
-                        ],
-                        on=["OLD-FRAG", "NEW-FRAG"],
-                        how="left",
-                        suffixes=("", "_mmpa"),
-                    )
-                    sa_norm = rep["sa_mean"].fillna(0.0)
-                    qedsa = rep["qed_mean"].fillna(0.0) + sa_norm
-                    qedsa_norm = (qedsa - qedsa.min()) / (
-                        qedsa.max() - qedsa.min() + 1e-8
-                    )
-                    freq_norm = (
-                        rep["FREQUENCY"].fillna(1) - rep["FREQUENCY"].min()
-                    ) / (rep["FREQUENCY"].max() - rep["FREQUENCY"].min() + 1e-8)
-                    rep["HYBRID_SCORE"] = qedsa_norm + freq_norm
-                    sampled_replacements = rep.sort_values(
-                        "HYBRID_SCORE", ascending=False
-                    ).reset_index(drop=True)
-                else:
-                    # default: frequency
-                    sampled_replacements = sampled_replacements.sort_values(
-                        by="FREQUENCY", ascending=False
-                    ).reset_index(drop=True)
+            if self.ranking_mode == "rank_filtered_mmpa_qed_sa":
+                rep = sampled_replacements.merge(
+                    self.mmpa_lib[
+                        ["OLD-FRAG", "NEW-FRAG", "qed_mean", "sa_mean", "FREQUENCY"]
+                    ],
+                    on=["OLD-FRAG", "NEW-FRAG"],
+                    how="left",
+                    suffixes=("", "_mmpa"),
+                )
+                # filter FREQUENCY < 10
+                rep = rep[rep["FREQUENCY_mmpa"] >= self.min_frequency]
+                rep["QED_SA_SCORE"] = rep["qed_mean"].fillna(0.0) + rep[
+                    "sa_mean"
+                ].fillna(0.0)
+                sampled_replacements = rep.sort_values(
+                    "QED_SA_SCORE", ascending=False
+                ).reset_index(drop=True)
+            elif self.ranking_mode == "random":
+                # random sampling
+                sampled_replacements = sampled_replacements.sample(frac=1).reset_index(
+                    drop=True
+                )
+            else:
+                # default: frequency
+                sampled_replacements = sampled_replacements.sort_values(
+                    by="FREQUENCY", ascending=False
+                ).reset_index(drop=True)
 
             num_gen_mol = 0
             pattern = r"\[(1[0-6]|[1-9])\*\]"
@@ -464,13 +448,21 @@ class FrequencySampler:
 
                 # replace [*] with [H] and ([*]) with ([H])
                 old_frag_without_wildcard = re.sub(r"\(\?\[\*\]\)", "([H])", old_frag)
-                old_frag_without_wildcard = re.sub(r"\[\*\]", "[H]", old_frag_without_wildcard)
+                old_frag_without_wildcard = re.sub(
+                    r"\[\*\]", "[H]", old_frag_without_wildcard
+                )
                 new_frag_without_wildcard = re.sub(r"\(\?\[\*\]\)", "([H])", new_frag)
-                new_frag_without_wildcard = re.sub(r"\[\*\]", "[H]", new_frag_without_wildcard)
+                new_frag_without_wildcard = re.sub(
+                    r"\[\*\]", "[H]", new_frag_without_wildcard
+                )
 
-                old_frag_without_wildcard = Chem.MolFromSmiles(old_frag_without_wildcard)
-                new_frag_without_wildcard = Chem.MolFromSmiles(new_frag_without_wildcard)
-    
+                old_frag_without_wildcard = Chem.MolFromSmiles(
+                    old_frag_without_wildcard
+                )
+                new_frag_without_wildcard = Chem.MolFromSmiles(
+                    new_frag_without_wildcard
+                )
+
                 old_frag_mw = calc_Mw(old_frag_without_wildcard)
                 new_frag_mw = calc_Mw(new_frag_without_wildcard)
 
@@ -512,7 +504,9 @@ class FrequencySampler:
                         _old_frag_numbered = exact_query_from_smiles(_old_frag_numbered)
                         _new_frag_numbered = exact_query_from_smiles(_new_frag_numbered)
                     except:
-                        print(f"Making exact reaction SMILES failed: R:{_old_frag_numbered} / P: {_new_frag_numbered}")
+                        print(
+                            f"Making exact reaction SMILES failed: R:{_old_frag_numbered} / P: {_new_frag_numbered}"
+                        )
                         continue
 
                     # _idx = old_idx_matches[0]
@@ -553,7 +547,9 @@ class FrequencySampler:
 
                     if abs(mol_mw_change - frag_mw_change) > 2:
                         if verbose:
-                            print(f"Warning: Certain part of the original molecule was lost.")
+                            print(
+                                f"Warning: Certain part of the original molecule was lost."
+                            )
                             print(f"Original molecule: {Chem.MolToSmiles(mol)}")
                             print(f"Generated molecule: {Chem.MolToSmiles(gen_mol)}")
                             print(f"Removal fragment: {old_frag}")
@@ -564,7 +560,9 @@ class FrequencySampler:
                             print(f"Insertion fragment MW: {new_frag_mw:.2f}")
                             print(f"Molecule MW change: {mol_mw_change:.2f}")
                             print(f"Fragment MW change: {frag_mw_change:.2f}")
-                            print(f"Difference: {abs(mol_mw_change - frag_mw_change):.2f}")
+                            print(
+                                f"Difference: {abs(mol_mw_change - frag_mw_change):.2f}"
+                            )
                             print()
                         continue
 
@@ -591,7 +589,9 @@ class FrequencySampler:
                         break
                 if num_gen_mol == num_samples:
                     if verbose:
-                        print(f"Successfully generated {num_gen_mol} samples for {smi}.")
+                        print(
+                            f"Successfully generated {num_gen_mol} samples for {smi}."
+                        )
                     break
             else:
                 if verbose:
@@ -609,7 +609,7 @@ class FrequencySampler:
 if __name__ == "__main__":
     import random
 
-    seed=42
+    seed = 42
     set_seed(seed)
 
     num_samples = 1000

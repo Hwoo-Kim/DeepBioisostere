@@ -3,8 +3,7 @@ from setuptools import find_packages, setup
 setup(
     name="DeepBioisostere",
     version="0.1.0",
-    packages=find_packages(where="scripts"),  # Tell setuptools to find packages under 'scripts'
-    package_dir={"": "scripts"},  # Tell setuptools that package root is 'scripts'
+    packages=find_packages(),  # Tell setuptools to find packages under 'scripts'
     install_requires=[
         # List your project's dependencies here.
         # E.g., 'numpy', 'pandas', etc.

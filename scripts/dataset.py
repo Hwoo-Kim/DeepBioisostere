@@ -589,9 +589,11 @@ class InferenceDataset(Dataset):
         ) = BRICSModule.get_allowed_subgraph(
             frag_atom_indice, edge_index_f, data.num_atoms, MAX_NUM_CHANGE_ATOMS
         )
-        if data.allowed_subgraph.size(0) == 0:
+        try:
+            data.min_allowed_subgraph = int(data.allowed_subgraph.min())
+        except Exception as _:
+            # No allowed leaving fragments
             return None
-        data.min_allowed_subgraph = int(data.allowed_subgraph.min())
         if data.allowed_subgraph_idx.size(0):
             data.allowed_subgraph_batch = torch.zeros(
                 data.allowed_subgraph_idx.max() + 1
@@ -617,10 +619,12 @@ class InferenceDataset(Dataset):
                 other_frags, _, _ = BRICSModule.get_adjacent_fragments(
                     mol, atoms_in_subgraph
                 )
-            except Exception as e:
-                print("Error occured get_adjacent_fragments:", e, smi)
-                # raise
-                return None
+            except ValueError as e:
+                # No allowed brics fragmentation
+                if "empty bond indices" in str(e):
+                    return None
+                else:
+                    raise ValueError(e)
             if other_frags is None:
                 return None  # No allowed modification position
 

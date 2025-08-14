@@ -1,5 +1,4 @@
 from collections import defaultdict
-from functools import partial
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
@@ -73,6 +72,7 @@ class Generator:
         conditioner: Union[Conditioner, None] = None,
         properties: List[PROPERTY] = None,
         logger=None,
+        **kwargs,
     ):
         assert (
             isinstance(num_sample_each_mol, int) or num_sample_each_mol == "all"
@@ -91,6 +91,7 @@ class Generator:
             self.logger = logger
         else:
             self.logger = print
+        self.model_args = kwargs
 
         # Fragment library dataset
         self.logger("Loading the fragment library...")
@@ -434,7 +435,9 @@ class Generator:
             )
 
             # 6. merge the fragment to the molecule
-            result_df = self.merge_fragment(model_inference_results, batch_idx)
+            result_df = self.merge_fragment(
+                model_inference_results, sampling_result_list, batch_idx
+            )
             batch_result.append(result_df)
             continue
 
@@ -968,13 +971,24 @@ class Generator:
 
         # Generate molecules with multiprocessing
         lock = Lock()
-        brics_compose = partial(
-            self.brics_compose, batch_idx=batch_idx, batch_size=self.batch_size
-        )
-        with mp.Pool(
+        # Build tasks for a top-level picklable worker
+        tasks = [
+            (merge_plan, batch_idx, self.batch_size) for merge_plan in selected_merge_plans
+        ]
+        ctx = mp.get_context("fork") if hasattr(mp, "get_context") else mp
+        with ctx.Pool(
             processes=self.num_cores, initializer=init_pool, initargs=(lock,)
         ) as p:
-            generation_results = p.map(brics_compose, selected_merge_plans)
+            generation_results = p.map(brics_compose_worker, tasks)
+
+        # Filter out failed generations
+        generation_results = [
+            row
+            for row in generation_results
+            if isinstance(row, list)
+            and len(row) == len(GEN_COLUMNS) + 1
+            and row[2]
+        ]
 
         # Merge the generated results into one pandas dataframe
         result_df = pd.DataFrame(
@@ -1018,6 +1032,56 @@ class Generator:
         return self.model.mod_pos_scoring(
             mol_emb, mol_emb.allowed_subgraph, mol_emb.allowed_subgraph_idx
         )
+
+
+# Top-level picklable worker for multiprocessing
+def brics_compose_worker(args):
+    merge_plan, batch_idx, batch_size = args
+    try:
+        return Generator.brics_compose(
+            merge_plan, batch_idx=batch_idx, batch_size=batch_size
+        )
+    except Exception:
+        # Best-effort fallback: return a sentinel row for filtering
+        try:
+            (
+                data_idx,
+                original_smi,
+                subgraph_idx,
+                change_indices,
+                new_frag_smi,
+                attachment,
+                prob,
+            ) = merge_plan
+            idx = data_idx + batch_size * batch_idx
+        except Exception:
+            return None
+        leaving_frag_smi = ""
+        try:
+            # Try to retrieve leaving_frag_smi if possible
+            _, leaving_frag_smi_temp = BRICSModule.compose_mols_with_attachment(
+                original_smi,
+                change_indices,
+                new_frag_smi,
+                attachment,
+                get_leaving_frag_smi=True,
+            )
+            leaving_frag_smi = leaving_frag_smi_temp
+        except Exception:
+            pass
+        return [
+            idx,
+            original_smi,
+            "",
+            leaving_frag_smi,
+            new_frag_smi,
+            prob,
+            np.nan,
+            np.nan,
+            np.nan,
+            np.nan,
+            subgraph_idx,
+        ]
 
 
 def init_pool(lock_: Lock):

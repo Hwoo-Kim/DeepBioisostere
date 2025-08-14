@@ -178,19 +178,19 @@ def main(args):
     logger("ATT: Avg Pair-wise Attachment Loss (->0)")
     logger("TOT: Avg Sum of FIVE Losses (->0)")
     logger(
-        "\nEP   | "
+        "\nEP   || "
         + "TR_PPO | "
         + "TR_NPO | "
         + "TR_PFR | "
         + "TR_NFR | "
         + "TR_ATT | "
-        + "TR_TOT | "
+        + "TR_TOT || "
         + "VA_PPO | "
         + "VA_NPO | "
         + "VA_PFR | "
         + "VA_NFR | "
         + "VA_ATT | "
-        + "VA_TOT | "
+        + "VA_TOT || "
         + "EP_TIME | "
         + "LR(*1e3) | "
         + "BEST_EP"
@@ -262,19 +262,19 @@ def main(args):
 
         # Logging the probabilities
         logger(
-            f"{str(epoch).ljust(4)} | "
+            f"{str(epoch).ljust(4)} || "
             + f"{train_pposprob:.4f} | "
             + f"{train_nposprob:.4f} | "
             + f"{train_pfprob:.4f} | "
             + f"{train_nfprob:.4f} | "
             + "       | "
-            + f"{train_tot:.4f} | "
+            + f"{train_tot:.4f} || "
             + f"{val_pposprob:.4f} | "
             + f"{val_nposprob:.4f} | "
             + f"{val_pfprob:.4f} | "
             + f"{val_nfprob:.4f} | "
             + "       | "
-            + f"{val_tot:.4f} | "
+            + f"{val_tot:.4f} || "
             + f"{str(time.time() - epoch_st)[:7]} | "
             + f'{optimizer.param_groups[0]["lr"]*1000:.5f}  | '
             + f"{best_epoch}"
@@ -282,19 +282,19 @@ def main(args):
         # Logging the losses
         if args.print_loss:
             logger(
-                "loss | "
+                "loss || "
                 + f"{train_pposloss:.4f} | "
                 + f"{train_nposloss:.4f} | "
                 + f"{train_pfloss:.4f} | "
                 + f"{train_nfloss:.4f} | "
                 + f"{train_attloss:.4f} | "
-                + f"{train_tot:.4f} | "
+                + f"{train_tot:.4f} || "
                 + f"{val_pposloss:.4f} | "
                 + f"{val_nposloss:.4f} | "
                 + f"{val_pfloss:.4f} | "
                 + f"{val_nfloss:.4f} | "
                 + f"{val_attloss:.4f} | "
-                + f"{val_tot:.4f} "
+                + f"{val_tot:.4f} || "
             )
 
         # Determining whether training should be terminated or not

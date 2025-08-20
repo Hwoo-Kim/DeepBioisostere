@@ -1,38 +1,30 @@
 #!/bin/bash
 
 #SBATCH -J DeepBio_train
-#SBATCH -p 3080ti
+#SBATCH -p a4000
 #SBATCH --nodes=1
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=4
 #SBATCH -o %x_%j.out
-#SBATCH -e %x_%j.err
-#SBATCH --time=infinite
-#SBATCH --gres=gpu:4
+#SBATCH -e %x_%j.out
+#SBATCH --time=144:00:00
+#SBATCH --gres=gpu:1
 
 ##### Run #####
 date
-
-export LD_LIBRARY_PATH=/home/swkim/.mamba/envs/Unlucky_Bioiso/lib
-export TORCH_SHOW_CPP_STACKTRACES=1
-export TORCH_CPP_LOG_LEVEL=INFO
-export TORCH_DISTRIBUTED_DEBUG=DETAIL
-# export TORCH_SHM_DISABLE=1
-
-loginctl enable-linger $USER
-
-export TMPDIR="/scratch/swkim/DeepBioisostere/shared_memory_tmp/slurm_$SLURM_JOB_ID"
-mkdir -p $TMPDIR
+echo $HOSTNAME
+ulimit -n 65535
 
 project_dir=~/DeepBioisostere/
 cd $project_dir
 
 # 1. Data Path Arguments
 # raw_data_folder="/home/share/DATA/mseok/DeepBioisostere_prev_train_datas/240204"
-raw_data_folder="data"
+# raw_data_folder="data"
+raw_data_folder="/home/share/DATA/swkim/DeepBioisostere/freq_1"
 raw_data_path="$raw_data_folder/processed_data.csv"
 
-# # copy to scratch
-scratch_dir="/scratch/swkim/DeepBioisostere"
+# copy to scratch
+scratch_dir="/scratch/$USER/DeepBioisostere/freq_1"
 if [ ! -d "$scratch_dir" ]; then
     mkdir -p "$scratch_dir"
 fi
@@ -54,7 +46,7 @@ if [ ! -e "$scratch_dir/frag_features.pkl" ]; then
 fi
 
 # experiment setting
-properties="logp"         # should not contain empty space!! only comma(,) is allowed.
+properties="qed,sa"         # should not contain empty space!! only comma(,) is allowed.
 conditioning=true
 use_delta=true                # conditioning option.
 use_soft_one_hot=false        # conditioning option.
@@ -63,21 +55,26 @@ print_loss=true
 
 # job name and log file setting
 prop_inform="${properties//,/\_}"
-EXP_NAME="Deepbio_train_${prop_inform}"
+EXP_NAME="Deepbio_train_freq_1_${prop_inform}"
+# EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}"
+# EXP_NAME="Deepbio_train_freq_1_${prop_inform}_reviewer2_message_passing"
+# EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}_reviewer2_message_passing"
 
 scontrol update JobID=$SLURM_JOB_ID JobName=$EXP_NAME  # change name
 mv DeepBio_train_${SLURM_JOB_ID}.out ${EXP_NAME}_${SLURM_JOB_ID}.out
-mv DeepBio_train_${SLURM_JOB_ID}.err ${EXP_NAME}_${SLURM_JOB_ID}.err
 
 if $conditioning; then
-  save_name=delta_conditioning_$prop_inform
+  save_name=new_prop_archi_delta_conditioning_freq_1_$prop_inform
+  # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_$prop_inform
+  # save_name=new_prop_archi_delta_conditioning_freq_1_reviewer2_message_passing_$prop_inform
+  # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_reviewer2_message_passing_$prop_inform
 else
   save_name=unconditioning
 fi
 
 # 2. Training Arguments
 seed=1024
-num_cores=16
+num_cores=4
 ngpu=1  # does not have any effect now. necessary for DDP.
 use_cuda=true
 lr_scheduler_can_terminate=true
@@ -98,9 +95,9 @@ num_batch_each_epoch=100
 # 3. Model Arguments
 mol_node_features=49
 mol_edge_features=12
-mol_node_hid_dim=128
-mol_edge_hid_dim=128
-mol_num_emb_layer=4
+mol_node_hid_dim=256
+mol_edge_hid_dim=256
+mol_num_emb_layer=5
 frag_node_features=66
 frag_edge_features=12
 frag_node_hid_dim=128
@@ -112,9 +109,9 @@ frag_score_hid_dim=128
 num_frag_score_layer=3
 attach_score_hid_dim=128
 num_attach_score_layer=3
-frag_message_passing_num_layer=2
+frag_message_passing_num_layer=3
 dropout=0.2
-use_subgraph_AMPN=false
+use_subgraph_AMPN=true             # NOTE: false for ablation study! default is True.
 
 # 4. Main Command Setting
 MAIN_CMD="python -u train_main.py
@@ -187,8 +184,5 @@ fi
 # 5. Main Operation
 MAIN_CMD=$(echo $MAIN_CMD | tr "\n" " ")
 eval $MAIN_CMD
-
-loginctl disable-linger $USER       # NEED TO REVISE; Linger should not be changed by other jobs
-rm -rf $TMPDIR
 
 date

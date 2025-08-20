@@ -72,7 +72,7 @@ class TrainDataset(Dataset):
             keys = (
                 (
                     (data_df["DATATYPE"] == mode)
-                    & (data_df["ALLOWED-ATTACHMENT"].isnull() == False)
+                    & (~data_df["ALLOWED-ATTACHMENT"].isnull())
                 )
                 .to_numpy()
                 .nonzero()[0]
@@ -298,6 +298,7 @@ class TrainCollator:
         parsed_data, pos_frags_data, frags_mask = [], [], []
         if self.conditioning:
             prop_dict = {prop: [] for prop in self.properties}
+            cond_vec_list = []  # per-sample concatenated condition vector [cond_dim]
 
         # Read the data from dataset 'get' method
         pos_frags_IDs = []
@@ -319,6 +320,13 @@ class TrainCollator:
                     prop_dict[prop].append(
                         item[prop]
                     )  # [F, 1] or [F, F_node-17], depending on use_soft_one_hot option of conditioner
+                # Build per-sample concatenated condition vector [cond_dim]
+                cond_parts = []
+                for prop in self.properties:
+                    # item[prop]: [F, dim] where rows are identical; use first row
+                    cond_parts.append(item[prop][0])
+                cond_vec = torch.cat(cond_parts, dim=-1)  # [cond_dim]
+                cond_vec_list.append(cond_vec)
 
         # The answer fragment IDs
         pos_frags_IDs = torch.tensor(pos_frags_IDs).long().unsqueeze(-1)  # [B,1]
@@ -330,16 +338,34 @@ class TrainCollator:
         masked_freq = torch.mul(self.frags_freq, frags_mask).pow(self.alpha1)
 
         # Negative sampling
-        neg_indice = torch.multinomial(
+        neg_indice_2d = torch.multinomial(
             input=masked_freq, num_samples=self.num_neg_sample, replacement=True
         )  # [B,n]
-        neg_indice = neg_indice.reshape(-1).long().tolist()
+        B, n = neg_indice_2d.size(0), neg_indice_2d.size(1)
+        neg_owner_idx = (
+            torch.arange(B).unsqueeze(1).repeat(1, n).reshape(-1).tolist()
+            if self.conditioning
+            else None
+        )
+        neg_indice = neg_indice_2d.reshape(-1).long().tolist()
         neg_frags_data = [self.frag_features[idx] for idx in neg_indice]
 
         # Batch all the data
         collated_batch["data"] = Batch.from_data_list(
             parsed_data, self.follow_batch, self.exclude_keys
         )
+        # Attach per-node condition to pos/neg fragments before batching
+        if self.conditioning:
+            # pos: one fragment per sample
+            for i, frag_data in enumerate(pos_frags_data):
+                num_nodes = frag_data.x_n.size(0)
+                cond_node = cond_vec_list[i].view(1, -1).repeat(num_nodes, 1)
+                frag_data.cond_node = cond_node
+            # neg: multiple per sample
+            for frag_data, owner in zip(neg_frags_data, neg_owner_idx or []):
+                num_nodes = frag_data.x_n.size(0)
+                cond_node = cond_vec_list[owner].view(1, -1).repeat(num_nodes, 1)
+                frag_data.cond_node = cond_node
         collated_batch["pos"] = Batch.from_data_list(
             pos_frags_data, self.follow_batch, self.exclude_keys
         )
@@ -593,7 +619,7 @@ class InferenceDataset(Dataset):
         )
         try:
             data.min_allowed_subgraph = int(data.allowed_subgraph.min())
-        except Exception as _:
+        except Exception:
             # No allowed leaving fragments
             return None
         if data.allowed_subgraph_idx.size(0):

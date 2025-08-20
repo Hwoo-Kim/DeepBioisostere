@@ -108,7 +108,10 @@ class Generator:
         for i, brics_type in enumerate(brics_types):
             self.brics_type_to_insertion_frags[brics_type] = np.where(positions == i)[0]
 
-        # Embed fragment library into frag_node_emb, frag_graph_emb
+        # Keep raw fragment features for on-the-fly conditioned embedding
+        self.frag_features = frags_lib_dataset.frag_features
+
+        # Embed fragment library into frag_node_emb, frag_graph_emb (baseline cache without condition)
         self.frag_lib_dl = DataLoader(
             dataset=frags_lib_dataset,
             batch_size=batch_size,
@@ -186,26 +189,60 @@ class Generator:
         if verbose:
             from tqdm import tqdm
             it = tqdm(it, total=len(data_dl))
+        # Local cache for this generate call only: key -> [frag_lib, 1, F_f]
+        cond_frag_graph_emb_cache = dict()
         for batch_idx, batch in it:
             data = batch["data"].to(self.device)
             if self.conditioner:
                 for prop in self.properties:
                     batch[prop] = batch[prop].to(self.device)
 
-            # 1. Embedding data
+            # 1. Inject property conditioning at atom level then embed
+            if self.conditioner and len(self.properties) > 0:
+                cond_embeddings = [batch[prop] for prop in self.properties]
+                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
+                condition_embedding = condition_embedding.to(data.x_n.device)
+                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
+                data.x_n = torch.cat(
+                    [
+                        data.x_n[:, : self.model.mol_node_features],
+                        cond_per_atom,
+                        data.x_n[:, self.model.mol_node_features :],
+                    ],
+                    dim=1,
+                )
             ampn_emb = self.model.ampn(data)
-            # NOTE: implementation choice: condition embedding vector is added to AMPN embedding vector.
-            if self.conditioner:
-                cond_embeddings = []
-                for prop in self.properties:
-                    cond_embeddings.append(batch[prop])
-                condition_embedding = torch.cat(
-                    cond_embeddings, dim=1
-                )  # [F, num_props]
-                ampn_emb.x_f = torch.cat(
-                    [ampn_emb.x_f, condition_embedding], dim=1
-                )  # [F, F_node+F_frag+num_props]
             mol_emb = self.model.fmpn(ampn_emb)
+
+            # Build per-sample condition keys and ensure conditioned frag embeddings
+            frag_graph_emb_per_data = None
+            if self.conditioner and len(self.properties) > 0:
+                # reconstruct cond vectors per sample from batch props
+                num_frags_per_data = []
+                for i in range(data.num_graphs):
+                    num_frags_per_data.append(int(data.num_frags[i]))
+                offsets = [0]
+                for nf in num_frags_per_data:
+                    offsets.append(offsets[-1] + nf)
+                cond_vecs = []
+                for i in range(data.num_graphs):
+                    rows = []
+                    for prop in self.properties:
+                        rows.append(batch[prop][offsets[i]])  # first row for sample i
+                    cond_vecs.append(torch.cat(rows, dim=-1))  # [cond_dim]
+
+                # compute unique keys and ensure cache
+                keys = []
+                for vec in cond_vecs:
+                    key = tuple(vec.detach().to("cpu").tolist())
+                    keys.append(key)
+                unique_keys = sorted(set(keys))
+                for key in unique_keys:
+                    if key not in cond_frag_graph_emb_cache:
+                        cond_frag_graph_emb_cache[key] = self._build_conditioned_frag_embeddings(
+                            torch.tensor(key, dtype=data.x_n.dtype, device=self.device)
+                        )  # [frag_lib, 1, F_f] on device
+                frag_graph_emb_per_data = [cond_frag_graph_emb_cache[k] for k in keys]
 
             # 2. Score modiciation position
             # leaving_subgraph_probs: list of Tensor[subgraph]
@@ -216,7 +253,7 @@ class Generator:
             # 3. Score fragment for the selected position
             # inserting_frag_probs: list of Tensor[subgraph, frag_lib]
             inserting_frag_probs = self.score_fragment_for_position(
-                subgraph_embed_vector, data
+                subgraph_embed_vector, data, frag_graph_emb_per_data=frag_graph_emb_per_data
             )
 
             # 4. Select from joint probability
@@ -294,19 +331,21 @@ class Generator:
                 for prop in self.properties:
                     batch[prop] = batch[prop].to(self.device)
 
-            # 1. Embedding data
+            # 1. Inject property conditioning at atom level then embed
+            if self.conditioner and len(self.properties) > 0:
+                cond_embeddings = [batch[prop] for prop in self.properties]
+                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
+                condition_embedding = condition_embedding.to(data.x_n.device)
+                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
+                data.x_n = torch.cat(
+                    [
+                        data.x_n[:, : self.model.mol_node_features],
+                        cond_per_atom,
+                        data.x_n[:, self.model.mol_node_features :],
+                    ],
+                    dim=1,
+                )
             ampn_emb = self.model.ampn(data)
-            # NOTE: implementation choice: condition embedding vector is added to AMPN embedding vector.
-            if self.conditioner:
-                cond_embeddings = []
-                for prop in self.properties:
-                    cond_embeddings.append(batch[prop])
-                condition_embedding = torch.cat(
-                    cond_embeddings, dim=1
-                )  # [F, num_props]
-                ampn_emb.x_f = torch.cat(
-                    [ampn_emb.x_f, condition_embedding], dim=1
-                )  # [F, F_node+F_frag+num_props]
             mol_emb = self.model.fmpn(ampn_emb)
 
             # 2. Score modiciation position
@@ -397,19 +436,21 @@ class Generator:
                 for prop in self.properties:
                     batch[prop] = batch[prop].to(self.device)
 
-            # 1. Embedding data
+            # 1. Inject property conditioning at atom level then embed
+            if self.conditioner and len(self.properties) > 0:
+                cond_embeddings = [batch[prop] for prop in self.properties]
+                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
+                condition_embedding = condition_embedding.to(data.x_n.device)
+                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
+                data.x_n = torch.cat(
+                    [
+                        data.x_n[:, : self.model.mol_node_features],
+                        cond_per_atom,
+                        data.x_n[:, self.model.mol_node_features :],
+                    ],
+                    dim=1,
+                )
             ampn_emb = self.model.ampn(data)
-            # NOTE: implementation choice: condition embedding vector is added to AMPN embedding vector.
-            if self.conditioner:
-                cond_embeddings = []
-                for prop in self.properties:
-                    cond_embeddings.append(batch[prop])
-                condition_embedding = torch.cat(
-                    cond_embeddings, dim=1
-                )  # [F, num_props]
-                ampn_emb.x_f = torch.cat(
-                    [ampn_emb.x_f, condition_embedding], dim=1
-                )  # [F, F_node+F_frag+num_props]
             mol_emb = self.model.fmpn(ampn_emb)
 
             # 2. Score modiciation position
@@ -576,7 +617,7 @@ class Generator:
 
     @torch.no_grad()
     def score_fragment_for_position(
-        self, batch_subgraph_embed_vectors: Tensor, batch: Batch
+        self, batch_subgraph_embed_vectors: Tensor, batch: Batch, frag_graph_emb_per_data=None
     ) -> Tuple[Tensor, Tensor]:
         batch_inserting_frag_probs = []
         for data_idx in range(batch.num_graphs):
@@ -602,7 +643,13 @@ class Generator:
             inserting_frag_scores = []
             for subgraph_idx, emb_vector in enumerate(subgraph_embed_vectors):
                 frag_mask = frag_masks[subgraph_idx]
-                allowed_frag_graph_emb = self.frag_graph_emb[frag_mask]
+                # select conditioned or baseline fragment embeddings
+                source_frag_graph_emb = (
+                    frag_graph_emb_per_data[data_idx]
+                    if frag_graph_emb_per_data is not None
+                    else self.frag_graph_emb
+                )  # [frag_lib, 1, F_f]
+                allowed_frag_graph_emb = source_frag_graph_emb[frag_mask]
                 allowed_frag_graph_emb = allowed_frag_graph_emb.to(self.device)
 
                 # NOTE: "num_allowed_frag" becomes different depending on the subgraph.
@@ -1033,6 +1080,38 @@ class Generator:
         return self.model.mod_pos_scoring(
             mol_emb, mol_emb.allowed_subgraph, mol_emb.allowed_subgraph_idx
         )
+
+    @torch.no_grad()
+    def _build_conditioned_frag_embeddings(self, cond_vec: torch.Tensor) -> torch.Tensor:
+        """
+        Build fragment graph embeddings for the entire fragment library under a given
+        condition vector cond_vec: [cond_dim]. Does not modify on-disk cache.
+
+        Returns: Tensor [frag_lib, 1, F_f] on self.device
+        """
+        # Create batched list with per-node cond_node
+        batches = []
+        batch_size = self.batch_size
+        for i in range(0, len(self.frag_features), batch_size):
+            frag_list = self.frag_features[i : i + batch_size]
+            # clone references and attach cond_node on-the-fly
+            data_list = []
+            for frag in frag_list:
+                d = frag
+                num_nodes = d.x_n.size(0)
+                cond_node = cond_vec.view(1, -1).repeat(num_nodes, 1).to(d.x_n.device)
+                d.cond_node = cond_node
+                data_list.append(d)
+            batches.append(Batch.from_data_list(data_list, follow_batch=["x_n"]))
+
+        frag_graph_emb_list = []
+        for b in batches:
+            b = b.to(self.device)
+            _, frag_graph_emb = self.model.frags_embedding(b)
+            frag_graph_emb_list.append(frag_graph_emb.to("cpu"))
+
+        frag_graph_emb = torch.concat(frag_graph_emb_list, dim=0)  # [frag_lib, F_f]
+        return frag_graph_emb.to(self.device).unsqueeze(1)
 
 
 # Top-level picklable worker for multiprocessing

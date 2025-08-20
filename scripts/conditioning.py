@@ -21,10 +21,10 @@ class Conditioner:
     sa_consts = [6.0, 0.0]
 
     # max, min values for delta logp, delta mw, delta qed
-    delta_logp_consts = [3.0, -3.0]
-    delta_mw_consts = [150.0, -150.0]
-    delta_qed_consts = [0.4, -0.4]
-    delta_sa_consts = [2.0, -2.0]
+    delta_logp_consts = [2.0, -2.0]
+    delta_mw_consts = [100.0, -100.0]
+    delta_qed_consts = [0.2, -0.2]
+    delta_sa_consts = [1.0, -1.0]
 
     node_hid_dim = DeepBioisostere.default_args["frag_node_hid_dim"]
 

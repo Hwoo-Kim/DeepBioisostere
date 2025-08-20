@@ -42,7 +42,8 @@ class MPNNLayer(MessagePassing):
     def message(self, x_i, x_j, edge):
         # all are in shape of [E,F]
         # x_i: target, x_j: source
-        message = self.message_layer(torch.concat([x_j, edge, x_i], dim=-1))
+        message = self.message_layer(torch.concat([x_j, edge, x_i], dim=-1))    # NOTE: submitted version
+        # message = self.message_layer(torch.concat([x_j, edge], dim=-1))         # NOTE: for conventional MPNN
         return message
 
     def update(self, aggregated, x) -> Tensor:

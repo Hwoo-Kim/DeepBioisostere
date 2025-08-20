@@ -68,16 +68,18 @@ class DeepBioisostere(nn.Module):
             self.properties = []
 
         # 1. MessagePassing Networks
+        cond_dim = self.properties_dim * len(self.properties) if self.conditioning else 0
         atom_embedding = MPNNEmbedding(
-            node_feature_dim=self.mol_node_features,
+            node_feature_dim=self.mol_node_features + cond_dim,
             edge_feature_dim=self.mol_edge_features,
             node_hidden_dim=self.mol_node_hid_dim,
             edge_hidden_dim=self.mol_edge_hid_dim,
             num_layer=self.mol_num_emb_layer,
             dropout=self.dropout,
         )
+        # Unified fragment embedding (weight sharing). Accepts condition dims.
         frag_embedding = MPNNEmbedding(
-            node_feature_dim=self.frag_node_features,
+            node_feature_dim=self.frag_node_features + cond_dim,
             edge_feature_dim=self.frag_edge_features,
             node_hidden_dim=self.frag_node_hid_dim,
             edge_hidden_dim=self.frag_edge_hid_dim,
@@ -85,9 +87,7 @@ class DeepBioisostere(nn.Module):
             dropout=self.dropout,
         )
         frag_message_passing = MPNNEmbedding(
-            node_feature_dim=self.mol_node_hid_dim
-            + self.frag_node_hid_dim
-            + self.properties_dim * len(self.properties),
+            node_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
             edge_feature_dim=self.mol_node_hid_dim + self.frag_node_hid_dim,
             node_hidden_dim=self.mol_node_hid_dim,
             edge_hidden_dim=self.mol_node_hid_dim,
@@ -103,7 +103,13 @@ class DeepBioisostere(nn.Module):
                 self.mol_node_hid_dim + self.frag_node_hid_dim
             )
 
-        self.ampn = AMPN(self.mol_node_features, atom_embedding, frag_embedding, self.use_subgraph_AMPN, self.upscaler)
+        self.ampn = AMPN(
+            self.mol_node_features + cond_dim,
+            atom_embedding,
+            frag_embedding,
+            self.use_subgraph_AMPN,
+            self.upscaler,
+        )
         self.fmpn = FMPN(frag_message_passing)
         self.frag_embedding = frag_embedding
 
@@ -172,8 +178,19 @@ class DeepBioisostere(nn.Module):
           frags_node_emb: FloatTensor. (N, F)
           frags_graph_emb: FloatTensor. (B, F)
         """
+        # Build input with optional condition dims
+        if self.conditioning and len(self.properties) > 0:
+            cond_dim = self.properties_dim * len(self.properties)
+            if hasattr(frags_lib_data, "cond_node") and frags_lib_data.cond_node is not None:
+                x_in = torch.cat([frags_lib_data.x_n, frags_lib_data.cond_node], dim=1)
+            else:
+                zeros = torch.zeros(frags_lib_data.x_n.size(0), cond_dim, device=frags_lib_data.x_n.device, dtype=frags_lib_data.x_n.dtype)
+                x_in = torch.cat([frags_lib_data.x_n, zeros], dim=1)
+        else:
+            x_in = frags_lib_data.x_n
+
         frags_node_emb = self.frag_embedding(
-            frags_lib_data.x_n, frags_lib_data.edge_index_n, frags_lib_data.edge_attr_n
+            x_in, frags_lib_data.edge_index_n, frags_lib_data.edge_attr_n
         )
         frags_graph_emb = scatter_sum(
             src=frags_node_emb, index=frags_lib_data.x_n_batch, dim=0
@@ -216,19 +233,24 @@ class DeepBioisostere(nn.Module):
         pos_frags = batch_data["pos"]
         neg_frags = batch_data["neg"]
 
-        # 1. Embedding given molecule by AMPN and FMPN
+        # 1. Inject property conditioning at atom level before AMPN
+        if self.conditioning and len(self.properties) > 0:
+            cond_embeddings = [batch_data[prop] for prop in self.properties]
+            condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
+            condition_embedding = condition_embedding.to(data.x_n.device)
+            # Expand fragment-level conditions to atoms via atom->frag mapping
+            cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
+            # Insert after base atom features (exclude BRICS tail)
+            data.x_n = torch.cat(
+                [
+                    data.x_n[:, : self.mol_node_features],
+                    cond_per_atom,
+                    data.x_n[:, self.mol_node_features :],
+                ],
+                dim=1,
+            )
+        # 2. Embedding given molecule by AMPN and FMPN
         ampn_emb = self.ampn(data)
-        # NOTE: implementation choice: condition embedding vector is added to AMPN embedding vector.
-        if self.conditioning:
-            cond_embeddings = []
-            # for prop, embedding_layer in self.condition_embeddings.items():
-            #     cond_embeddings.append(embedding_layer(batch_data[prop]))
-            for prop in self.properties:
-                cond_embeddings.append(batch_data[prop])
-            condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, num_props]
-            ampn_emb.x_f = torch.cat(
-                [ampn_emb.x_f, condition_embedding], dim=1
-            )  # [F, F_node+F_frag+num_props]
         mol_emb = self.fmpn(ampn_emb)
 
         # 2. Score leaving Posision

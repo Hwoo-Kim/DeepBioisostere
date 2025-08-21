@@ -20,7 +20,8 @@ class MPNNLayer(MessagePassing):
         super().__init__(aggr="add")
         self.bias = nn.Parameter(torch.Tensor(node_hidden_dim))
         self.message_layer = nn.Linear(
-            in_features=node_hidden_dim * 2 + edge_hidden_dim,
+            in_features=node_hidden_dim * 2 + edge_hidden_dim,      # NOTE: submitted version
+            # in_features=node_hidden_dim + edge_hidden_dim,          # NOTE: for conventional MPNN (reviewer 2)
             out_features=node_hidden_dim,
         )
         self.gru_cell = nn.GRUCell(
@@ -43,7 +44,7 @@ class MPNNLayer(MessagePassing):
         # all are in shape of [E,F]
         # x_i: target, x_j: source
         message = self.message_layer(torch.concat([x_j, edge, x_i], dim=-1))    # NOTE: submitted version
-        # message = self.message_layer(torch.concat([x_j, edge], dim=-1))         # NOTE: for conventional MPNN
+        # message = self.message_layer(torch.concat([x_j, edge], dim=-1))         # NOTE: for conventional MPNN (reviewer 2)
         return message
 
     def update(self, aggregated, x) -> Tensor:

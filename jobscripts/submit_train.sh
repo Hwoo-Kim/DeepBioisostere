@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J DeepBio_train
-#SBATCH -p a4000
+#SBATCH -p l40s
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH -o %x_%j.out
@@ -13,6 +13,11 @@
 date
 echo $HOSTNAME
 ulimit -n 65535
+
+module load cuda_module/cuda-12.4
+
+source ~/.bashrc
+source activate Bioiso
 
 project_dir=~/DeepBioisostere/
 cd $project_dir
@@ -55,19 +60,27 @@ print_loss=true
 
 # job name and log file setting
 prop_inform="${properties//,/\_}"
-EXP_NAME="Deepbio_train_freq_1_${prop_inform}"
+# EXP_NAME="Deepbio_train_freq_1_${prop_inform}"
 # EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}"
 # EXP_NAME="Deepbio_train_freq_1_${prop_inform}_reviewer2_message_passing"
 # EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}_reviewer2_message_passing"
+EXP_NAME="Deepbio_train_frag_dim_256_freq_1_${prop_inform}"
+# EXP_NAME="Deepbio_train_frag_dim_256_ablation_freq_1_${prop_inform}"
+# EXP_NAME="Deepbio_train_frag_dim_256_freq_1_${prop_inform}_reviewer2_message_passing"
+# EXP_NAME="Deepbio_train_frag_dim_256_ablation_freq_1_${prop_inform}_reviewer2_message_passing"
 
 scontrol update JobID=$SLURM_JOB_ID JobName=$EXP_NAME  # change name
 mv DeepBio_train_${SLURM_JOB_ID}.out ${EXP_NAME}_${SLURM_JOB_ID}.out
 
 if $conditioning; then
-  save_name=new_prop_archi_delta_conditioning_freq_1_$prop_inform
+  # save_name=new_prop_archi_delta_conditioning_freq_1_$prop_inform
   # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_$prop_inform
   # save_name=new_prop_archi_delta_conditioning_freq_1_reviewer2_message_passing_$prop_inform
   # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_reviewer2_message_passing_$prop_inform
+  save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_$prop_inform
+  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_ablation_$prop_inform
+  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_reviewer2_message_passing_$prop_inform
+  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_ablation_reviewer2_message_passing_$prop_inform
 else
   save_name=unconditioning
 fi
@@ -100,8 +113,8 @@ mol_edge_hid_dim=256
 mol_num_emb_layer=5
 frag_node_features=66
 frag_edge_features=12
-frag_node_hid_dim=128
-frag_edge_hid_dim=128
+frag_node_hid_dim=256
+frag_edge_hid_dim=256
 frag_num_emb_layer=4
 position_score_hid_dim=128
 num_mod_position_score_layer=3

@@ -321,11 +321,7 @@ class FrequencySampler:
     ):
         self.smis = smis
         self.replacement_lib = pd.read_csv(replacement_lib_path, sep="\t")
-        self.mmpa_lib = pd.read_csv(
-            "/home/share/DATA/swkim/DeepBioisostere/mmpa_replacement_library.csv",
-            sep="\t",
-            low_memory=False,
-        )
+        self.mmpa_lib = pd.read_csv(replacement_lib_path, sep="\t", low_memory=False)
         self.generate_all_attachments = generate_all_attachments
         self.ranking_mode = ranking_mode
         self.min_frequency = min_frequency

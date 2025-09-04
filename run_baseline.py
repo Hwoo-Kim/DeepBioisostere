@@ -39,6 +39,12 @@ if __name__ == "__main__":
         ),
     )
     parser.add_argument(
+        "--replacement_lib_path",
+        help="Path to the replacement library CSV file.",
+        type=str,
+        default="/home/share/DATA/swkim/DeepBioisostere/freq_1/mmpa_replacement_library.csv",
+    )
+    parser.add_argument(
         "--ranking_mode",
         type=str,
         default="frequency",
@@ -85,7 +91,7 @@ if __name__ == "__main__":
 
     sampler = FrequencySampler(
         smis=input_list,
-        replacement_lib_path="/home/share/DATA/swkim/DeepBioisostere/replacement_library.csv",
+        replacement_lib_path=args.replacement_lib_path,
         generate_all_attachments=True,
         ranking_mode=args.ranking_mode,
         min_frequency=args.min_frequency,

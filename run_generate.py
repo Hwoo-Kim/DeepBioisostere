@@ -11,6 +11,9 @@ from scripts.conditioning import Conditioner
 from scripts.model import DeepBioisostere
 from scripts.utils import set_seed
 
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
+
 
 def unnormalize_sa(norm_sa):
     return 10 - (norm_sa * 9)
@@ -43,6 +46,24 @@ if __name__ == "__main__":
         default=Path(
             "/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250611_final"
         ),
+    )
+    parser.add_argument(
+        "--trained_model_dir",
+        help="Directory containing the trained model.",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
+        "--frag_lib_dir",
+        help="Directory containing the fragment library.",
+        type=Path,
+        required=True,
+    )
+    parser.add_argument(
+        "--ablation",
+        help="Ablation study flag (default: False).",
+        action="store_true",
+        default=False,
     )
     parser.add_argument(
         "--properties",
@@ -82,8 +103,17 @@ if __name__ == "__main__":
     # Set paths
     properties = sorted(args.properties)
     proj_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = f"{proj_dir}/model_save/DeepBioisostere_{'_'.join(properties)}.pt"
-    frag_lib_path = f"{proj_dir}/fragment_library/"
+    if args.ablation:
+        model_path = (
+            args.trained_model_dir
+            / f"DeepBioisostere_{'_'.join(properties)}_ablation.pt"
+        )
+    else:
+        model_path = (
+            args.trained_model_dir / f"DeepBioisostere_{'_'.join(properties)}.pt"
+        )
+
+    frag_lib_path = args.frag_lib_dir
     output_path = (
         args.result_dir
         / "gen"
@@ -107,7 +137,19 @@ if __name__ == "__main__":
     print("=" * 30)
 
     # Initialize model and generator
-    model = DeepBioisostere.from_trained_model(model_path, properties=properties)
+    use_subgraph_AMPN = (
+        not args.ablation
+    )  # False is for ablation model. default is True.
+    model_args = {
+        "mol_node_hid_dim": 256,
+        "mol_edge_hid_dim": 256,
+        "mol_num_emb_layer": 5,
+        "frag_message_passing_num_layer": 3,
+        "use_subgraph_AMPN": use_subgraph_AMPN,
+    }
+    model = DeepBioisostere.from_trained_model(
+        model_path, properties=properties, **model_args
+    )
     conditioner = Conditioner(
         phase="generation",
         properties=properties,

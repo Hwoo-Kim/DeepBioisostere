@@ -29,19 +29,10 @@ pip install -e .
 
 This will configure a new conda environment named 'Bioiso'.
 ## Training data for DeepBioisostere
-1. If you want to re-train DeepBioisostere model *without* data generation, you can download the training data with:
-(this script would be provided soon...)
-```
-./download_train_data.sh
-```
-And go to [Training DeepBioisostere](#training-deepbioisostere).
 
-2. Or, if you want to re-train DeepBioisostere model *with* data generation by MMP analysis, you can download the ingredients with:
-(this script would be provided soon...)
-```
-./download_mmpa_data.sh
-```
-And go to [MMP Analysis](#mmp-analysis).
+1. If you want to re-train DeepBioisostere model *without* data generation, training data are available at the following Zenodo repository under the Apache License 2.0: https://doi.org/10.5281/zenodo.17804556. After downloading the dataset, go to [Training DeepBioisostere](#training-deepbioisostere).
+
+2. Or, if you want to re-train DeepBioisostere model *with* data generation by MMP analysis, go to [MMP Analysis](#mmp-analysis).
 
 ## MMP Analysis
 All the necessary source code files are in:
@@ -63,9 +54,12 @@ And go to [Optimize a molecule with DeepBioisostere](#optimize-a-molecule-with-d
 An example for molecule optimization with DeepBioisostere can be found in `./example.py` and `./example.ipynb` files.
 The process can be divided as 1) initializing `DeepBioisotere` model, 2) initializing `Generator` class, and 3) molecule optimization.
 
+All the trained model parameters (`.pt` files) can be found at `./model_save`.
+
 For the molecule optimizaiton process, we provide two options about leaving fragment selection; 1) selection by DeepBioisostere model and 2) manual selection. Below are the full descriptions about the overall process and the two options.
 
 ```python
+import os
 from rdkit import Chem
 from scripts.conditioning import Conditioner
 from scripts.generate import Generator
@@ -85,10 +79,11 @@ num_sample_each_mol = 100
 new_frag_type = "all"      # one of ["test", "train", "valid", "all"]
 properties_to_control = ["mw", "logp"]  # You don't need to worry about the order!
 
-# Set model and fragment library paths
+# Set model and fragment library paths (based on this project directory)
 properties = sorted(properties_to_control)
-model_path = f"/home/share/DATA/mseok/FRAGMOD/trained_models/DeepBioisostere_{'_'.join(properties)}.pt"
-frag_lib_path = "/home/share/DATA/mseok/FRAGMOD/240204/"
+proj_dir = os.path.dirname(os.path.abspath(__file__))
+model_path = f"{proj_dir}/model_save/DeepBioisostere_{'_'.join(properties)}.pt"
+frag_lib_path = f"{proj_dir}/fragment_library/"
 
 # Initialize model and generator
 model = DeepBioisostere.from_trained_model(model_path, properties=properties)

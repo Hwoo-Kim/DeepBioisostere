@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #SBATCH -J DeepBio_train
-#SBATCH -p l40s
+#SBATCH -p a4000
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
 #SBATCH -o %x_%j.out
@@ -51,7 +51,7 @@ if [ ! -e "$scratch_dir/frag_features.pkl" ]; then
 fi
 
 # experiment setting
-properties="qed,sa"         # should not contain empty space!! only comma(,) is allowed.
+properties="mw"         # should not contain empty space!! only comma(,) is allowed.
 conditioning=true
 use_delta=true                # conditioning option.
 use_soft_one_hot=false        # conditioning option.
@@ -60,30 +60,14 @@ print_loss=true
 
 # job name and log file setting
 prop_inform="${properties//,/\_}"
-# EXP_NAME="Deepbio_train_freq_1_${prop_inform}"
-# EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}"
-# EXP_NAME="Deepbio_train_freq_1_${prop_inform}_reviewer2_message_passing"
-# EXP_NAME="Deepbio_train_ablation_freq_1_${prop_inform}_reviewer2_message_passing"
-EXP_NAME="Deepbio_train_frag_dim_256_freq_1_${prop_inform}"
-# EXP_NAME="Deepbio_train_frag_dim_256_ablation_freq_1_${prop_inform}"
-# EXP_NAME="Deepbio_train_frag_dim_256_freq_1_${prop_inform}_reviewer2_message_passing"
-# EXP_NAME="Deepbio_train_frag_dim_256_ablation_freq_1_${prop_inform}_reviewer2_message_passing"
+if $conditioning; then
+  EXP_NAME="Deepbio_freq_1_${prop_inform}"
+else
+  EXP_NAME="Deepbio_freq_1_unconditioning"
+fi
 
 scontrol update JobID=$SLURM_JOB_ID JobName=$EXP_NAME  # change name
 mv DeepBio_train_${SLURM_JOB_ID}.out ${EXP_NAME}_${SLURM_JOB_ID}.out
-
-if $conditioning; then
-  # save_name=new_prop_archi_delta_conditioning_freq_1_$prop_inform
-  # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_$prop_inform
-  # save_name=new_prop_archi_delta_conditioning_freq_1_reviewer2_message_passing_$prop_inform
-  # save_name=new_prop_archi_delta_conditioning_freq_1_ablation_reviewer2_message_passing_$prop_inform
-  save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_$prop_inform
-  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_ablation_$prop_inform
-  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_reviewer2_message_passing_$prop_inform
-  # save_name=new_prop_frag_dim_256_archi_delta_conditioning_freq_1_ablation_reviewer2_message_passing_$prop_inform
-else
-  save_name=unconditioning
-fi
 
 # 2. Training Arguments
 seed=1024
@@ -113,8 +97,8 @@ mol_edge_hid_dim=256
 mol_num_emb_layer=5
 frag_node_features=66
 frag_edge_features=12
-frag_node_hid_dim=256
-frag_edge_hid_dim=256
+frag_node_hid_dim=128
+frag_edge_hid_dim=128
 frag_num_emb_layer=4
 position_score_hid_dim=128
 num_mod_position_score_layer=3
@@ -129,7 +113,7 @@ use_subgraph_AMPN=true             # NOTE: false for ablation study! default is 
 # 4. Main Command Setting
 MAIN_CMD="python -u train_main.py
 --project_dir $project_dir
---save_name $save_name
+--save_name $EXP_NAME
 --data_path $data_path
 --seed $seed
 --ngpu $ngpu

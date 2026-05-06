@@ -41,7 +41,7 @@ All the necessary source code files are in:
 ```
 
 ## Training DeepBioisostere
-After getting data for training by ```./download_train_data.sh``` or manually running MMPA, you can re-train a new model by:
+After getting data for training from the Zenodo repository or manually running MMPA, you can re-train a new model by:
 ```
 python ./train_main.py
 ```

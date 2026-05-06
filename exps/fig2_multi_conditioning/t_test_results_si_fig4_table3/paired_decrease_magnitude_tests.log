@@ -1,0 +1,63 @@
+Running paired tests from files:
+  ORIGINAL: /home/hwkim/DeepBioisostere/exps/fig2_multi_conditioning/csv_files/generation_result_seed2025.csv
+  ABLATION: /home/hwkim/DeepBioisostere/exps/fig2_multi_conditioning/csv_files/generation_result_seed2025_ablated.csv
+
+[Mw maintain (drift↓) tests] case1 | Mw 0.00 / logP -1.00
+  n=995, mean_mag_orig=4.5212, mean_mag_abl=4.6471
+  - orig < abl (better): t=-1.1121, p=1.332e-01
+  - orig > abl (worse):  t=-1.1121, p=8.668e-01
+
+[logP decrease tests] case1 | Mw 0.00 / logP -1.00
+  n=995, mean_mag_orig=0.8419, mean_mag_abl=0.8285
+  - orig > abl (better): t=2.8196, p=2.452e-03
+  - orig < abl (worse):  t=2.8196, p=9.975e-01
+
+[Mw maintain (drift↓) tests] case1 | Mw 0.00 / logP 1.00
+  n=995, mean_mag_orig=4.6666, mean_mag_abl=4.7833
+  - orig < abl (better): t=-0.9354, p=1.749e-01
+  - orig > abl (worse):  t=-0.9354, p=8.251e-01
+
+[logP increase tests] case1 | Mw 0.00 / logP 1.00
+  n=995, mean_mag_orig=0.8330, mean_mag_abl=0.8325
+  - orig > abl (better): t=0.1174, p=4.533e-01
+  - orig < abl (worse):  t=0.1174, p=5.467e-01
+
+[Mw maintain (drift↓) tests] case2 | Mw 0.00 / QED 0.10
+  n=979, mean_mag_orig=3.7701, mean_mag_abl=4.0906
+  - orig < abl (better): t=-2.8272, p=2.396e-03
+  - orig > abl (worse):  t=-2.8272, p=9.976e-01
+
+[QED increase tests] case2 | Mw 0.00 / QED 0.10
+  n=979, mean_mag_orig=0.0682, mean_mag_abl=0.0689
+  - orig > abl (better): t=-0.6613, p=7.457e-01
+  - orig < abl (worse):  t=-0.6613, p=2.543e-01
+
+[Mw maintain (drift↓) tests] case2 | Mw 0.00 / QED 0.20
+  n=979, mean_mag_orig=3.8040, mean_mag_abl=3.9290
+  - orig < abl (better): t=-1.0638, p=1.438e-01
+  - orig > abl (worse):  t=-1.0638, p=8.562e-01
+
+[QED increase tests] case2 | Mw 0.00 / QED 0.20
+  n=979, mean_mag_orig=0.1001, mean_mag_abl=0.0945
+  - orig > abl (better): t=5.5481, p=1.859e-08
+  - orig < abl (worse):  t=5.5481, p=1.000e+00
+
+[QED maintain (drop↓) tests] case3 | QED 0.00 / SA -0.50
+  n=793, mean_mag_orig=0.0328, mean_mag_abl=0.0361
+  - orig < abl (better): t=-3.8562, p=6.225e-05
+  - orig > abl (worse):  t=-3.8562, p=9.999e-01
+
+[SA decrease tests] case3 | QED 0.00 / SA -0.50
+  n=793, mean_mag_orig=0.4422, mean_mag_abl=0.4316
+  - orig > abl (better): t=1.9737, p=2.438e-02
+  - orig < abl (worse):  t=1.9737, p=9.756e-01
+
+[QED maintain (drop↓) tests] case3 | QED 0.00 / SA -1.00
+  n=793, mean_mag_orig=0.0345, mean_mag_abl=0.0329
+  - orig < abl (better): t=1.3913, p=9.177e-01
+  - orig > abl (worse):  t=1.3913, p=8.227e-02
+
+[SA decrease tests] case3 | QED 0.00 / SA -1.00
+  n=793, mean_mag_orig=0.7235, mean_mag_abl=0.6905
+  - orig > abl (better): t=5.8142, p=4.416e-09
+  - orig < abl (worse):  t=5.8142, p=1.000e+00

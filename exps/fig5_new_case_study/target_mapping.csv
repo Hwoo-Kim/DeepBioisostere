@@ -1,0 +1,4 @@
+target_idx,pdb_id,role_in_pdf,reference_sdf_label
+36,4P77,Supplementary Table 7 additional target,__4p6p_A_rec_4p77_5rp_lig_docked.pdb
+68,4RV4,Main Table 2 and Main Figure 5 target,__4rv4_A_rec_4rv4_prp_lig_docked.pdb
+84,2EWY,Supplementary Table 7 additional target,__4bel_A_rec_2ewy_dbo_lig_min.pdb

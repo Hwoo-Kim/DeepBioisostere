@@ -1,0 +1,13 @@
+pdb_id,target_idx,model,qed_mean,sa_raw,sa_score_transformed,source_file
+4P77,36,DeepICL,0.442598190298124,0.7081999999999999,3.626200000000001,supplementary_table_6/avg_result_all_targets.csv
+4P77,36,Pocket2Mol,0.5156960778530048,0.7138541666666667,3.575312499999999,supplementary_table_6/avg_result_all_targets.csv
+4P77,36,TargetDiff,0.35385231016705704,0.6429896907216495,4.213092783505155,supplementary_table_6/avg_result_all_targets.csv
+4P77,36,DecompDiff,0.5709577746761909,0.6996774193548386,3.702903225806453,supplementary_table_6/avg_result_all_targets.csv
+4RV4,68,DeepICL,0.4403296022794013,0.68,3.879999999999999,supplementary_table_6/avg_result_all_targets.csv
+4RV4,68,Pocket2Mol,0.5696893068324236,0.7209302325581395,3.511627906976744,supplementary_table_6/avg_result_all_targets.csv
+4RV4,68,TargetDiff,0.23810697408249024,0.5717708333333333,4.8540625,supplementary_table_6/avg_result_all_targets.csv
+4RV4,68,DecompDiff,0.3927537986074633,0.6601030927835052,4.059072164948454,supplementary_table_6/avg_result_all_targets.csv
+2EWY,84,DeepICL,0.5486518017324052,0.6507999999999999,4.142800000000001,supplementary_table_6/avg_result_all_targets.csv
+2EWY,84,Pocket2Mol,0.4108118628880654,0.5647560975609757,4.917195121951219,supplementary_table_6/avg_result_all_targets.csv
+2EWY,84,TargetDiff,0.3293118272860487,0.485,5.635,supplementary_table_6/avg_result_all_targets.csv
+2EWY,84,DecompDiff,0.19523743098302396,0.46289473684210525,5.833947368421053,supplementary_table_6/avg_result_all_targets.csv

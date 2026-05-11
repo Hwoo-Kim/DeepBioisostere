@@ -1,0 +1,15 @@
+SLURM INFO: Job scratch root: /scratch/<USER>/gpu_docking_job_262963
+SLURM INFO: Copying reference tar to scratch: /scratch/<USER>/gpu_docking_job_262963/reference.tar
+SLURM INFO: Creating extraction directory: /scratch/<USER>/gpu_docking_job_262963
+SLURM INFO: Extracting reference tar into /scratch/<USER>/gpu_docking_job_262963
+SLURM INFO: Creating Python main scratch directory: /scratch/<USER>/gpu_docking_job_262963/python_processing_area
+CUDA_VISIBLE_DEVICES: 3
+SLURM INFO: Starting Python docking script...
+TOTAL TASKS TO DOCK: 6846
+TARGET:  84
+Docking results summary saved to: /scratch/<USER>/gpu_docking_job_262963/python_processing_area/output_files_for_tar/summary_pocket2mol_84_0.10_-1.0.csv
+GPU Docking script completed.
+SLURM INFO: Python script finished with exit code 0.
+SLURM INFO: Archiving results from /scratch/<USER>/gpu_docking_job_262963/python_processing_area/output_files_for_tar to <REPO_ROOT>/exps/fig5_new_case_study/20250826_new_data_main_model/docking_gpu_results/GPU_pocket2mol_84_0.10_-1.0_262963_docking_results.tar
+SLURM INFO: Successfully created tarball: <REPO_ROOT>/exps/fig5_new_case_study/20250826_new_data_main_model/docking_gpu_results/GPU_pocket2mol_84_0.10_-1.0_262963_docking_results.tar
+SLURM INFO: Cleaning up job scratch root: /scratch/<USER>/gpu_docking_job_262963

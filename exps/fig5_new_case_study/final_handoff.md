@@ -68,6 +68,33 @@ The source data package now contains the required materials for:
 - final docking job provenance
 - raw SBDD evaluation CSVs
 - selected reference files
+- docking-only rerun input generation from packaged raw summaries
+- packaged-reference staging through either `reference.tar` or
+  `REFERENCE_DIR_PATH`
+
+## Docking Rerun Handoff
+
+For a new verifier who wants to rerun docking without regenerating molecules,
+the intended path is:
+
+1. Generate clean candidate CSVs and `reference.tar`:
+
+```bash
+python3 exps/fig5_new_case_study/provenance/scripts/prepare_docking_rerun_inputs.py
+```
+
+2. Build or provide AutoDock-Vina-GPU from the expected upstream source tree:
+
+```text
+https://github.com/DeltaGroupNJUPT/Vina-GPU-2.1/tree/main/AutoDock-Vina-GPU-2.1
+```
+
+3. Set `VINA_GPU_EXECUTABLE_PATH`, `VINA_GPU_OPENCL_BINARY_PATH`, and a
+CUDA/OpenCL runtime path visible to the job environment. The exact local CUDA
+setup is cluster-specific.
+
+4. Submit the archived Slurm wrapper on the generated
+`docking_rerun_inputs/gen/.../*.csv` files.
 
 ## Remaining Final Check
 

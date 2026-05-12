@@ -31,6 +31,9 @@ The target index to PDB ID mapping is recorded in `target_mapping.csv`.
 - `docking.yml`: conda export for the environment used by the final GPU
   docking jobs, with comments documenting external Vina-GPU, CUDA/OpenCL, Boost,
   and reference-data paths that are not installed by conda.
+- `provenance/scripts/prepare_docking_rerun_inputs.py`: standard-library helper
+  that derives clean docking-only candidate CSVs and `reference.tar` from the
+  packaged source data.
 - `reproduce_results.py`: standard-library Python checker for the
   manuscript values and provenance consistency.
 
@@ -84,7 +87,7 @@ source data therefore treats the submitted CSV summaries as the authoritative
 source data and uses Slurm logs plus script snapshots as provenance for the
 docking workflow.
 
-### 1. Required External Inputs
+### 1. Required External Runtime
 
 The conda environment used for the final docking jobs is recorded in:
 
@@ -111,22 +114,34 @@ pdb2pqr 3.7.1
 AutoDockTools importable in the conda environment
 ```
 
-The full workflow needs external inputs and binaries that are intentionally not
-hard-coded in this repository. Set these variables before submitting docking
-jobs:
+The docking rerun needs external runtime components that are intentionally not
+included in this repository. The expected Vina-GPU source tree is:
+
+```text
+https://github.com/DeltaGroupNJUPT/Vina-GPU-2.1/tree/main/AutoDock-Vina-GPU-2.1
+```
+
+Build or obtain the executable from that tree, then point the wrapper to the
+directory containing `AutoDock-Vina-GPU-2-1`, `Kernel1_Opt.bin`, and
+`Kernel2_Opt.bin`. CUDA/OpenCL runtime libraries must be visible in the runtime
+environment, for example through `PATH`, `LD_LIBRARY_PATH`, or the
+`CUDA_OPENCL_PATH` variable. The exact way to expose CUDA/OpenCL is
+cluster-specific.
+
+For docking-only reruns from this package, set:
 
 ```bash
-export SBDD_EVAL_ROOT=/path/to/sbdd_eval_root
-export REFERENCE_TAR_PATH=/path/to/reference.tar
-export REPLACEMENT_LIBRARY_CSV=/path/to/replacement_library.csv
-export VINA_GPU_EXECUTABLE_PATH=/path/to/AutoDock-Vina-GPU
-export VINA_GPU_OPENCL_BINARY_PATH=/path/to/AutoDock-Vina-GPU
+export VINA_GPU_ROOT=/path/to/Vina-GPU-2.1/AutoDock-Vina-GPU-2.1
+export VINA_GPU_EXECUTABLE_PATH=$VINA_GPU_ROOT/AutoDock-Vina-GPU-2-1
+export VINA_GPU_OPENCL_BINARY_PATH=$VINA_GPU_ROOT
 export CUDA_OPENCL_PATH=/path/to/cuda-or-opencl-runtime
 export BOOST_LIB_DIR=/path/to/boost/lib
 ```
 
 `BOOST_LIB_DIR` is optional if the local Vina-GPU binary already resolves its
-Boost libraries. `MK_PREPARE_RECEPTOR_SCRIPT_PATH` and
+Boost libraries. `VINA_GPU_OPENCL_BINARY_PATH` defaults to the directory that
+contains `VINA_GPU_EXECUTABLE_PATH`, which is the expected location for the
+Vina-GPU kernel binaries. `MK_PREPARE_RECEPTOR_SCRIPT_PATH` and
 `MK_PREPARE_LIGAND_SCRIPT_PATH` default to the active conda environment's
 `bin/` directory and can also be overridden explicitly. If `conda` is not on
 the compute-node `PATH`, set `CONDA_ENV_PREFIX=/path/to/conda/env` before
@@ -134,9 +149,93 @@ submission. If the Slurm scheduler copies the wrapper to a spool directory, set
 `DOCKING_PYTHON_SCRIPT_PATH` to the absolute path of
 `provenance/scripts/run_gpu_docking.py`.
 
-### 2. Generate DeepBioisostere Candidates
+`SBDD_EVAL_ROOT` and `REPLACEMENT_LIBRARY_CSV` are only needed when regenerating
+candidate molecules or raw SBDD evaluation outputs. They are not needed for the
+docking-only rerun path below.
 
-DeepBioisostere candidate CSVs have the form:
+### 2. Prepare Packaged Docking Rerun Inputs
+
+For reviewer-style docking reproduction, start from the packaged raw summary
+CSV files rather than rerunning candidate generation. This reproduces docking
+for the exact molecule sets used by Main Table 2 and Supplementary Table 7.
+
+Create clean candidate CSVs and a portable reference tarball:
+
+```bash
+python3 exps/fig5_new_case_study/provenance/scripts/prepare_docking_rerun_inputs.py
+```
+
+This writes:
+
+```text
+exps/fig5_new_case_study/docking_rerun_inputs/gen/<model>/<target_idx>/<condition>.csv
+exps/fig5_new_case_study/docking_rerun_inputs/docking_input_manifest.csv
+exps/fig5_new_case_study/docking_rerun_inputs/reference.tar
+```
+
+The generated input CSVs contain only the columns consumed by the docking script:
+
+```text
+INPUT-MOL-IDX, INPUT-MOL-SMI, GEN-MOL-IDX, GEN-MOL-SMI
+```
+
+This avoids carrying stale docking-score columns back into a rerun.
+
+Use either the generated tarball:
+
+```bash
+export REFERENCE_TAR_PATH=$PWD/exps/fig5_new_case_study/docking_rerun_inputs/reference.tar
+```
+
+or the packaged reference directory directly:
+
+```bash
+export REFERENCE_DIR_PATH=$PWD/exps/fig5_new_case_study/raw_references/reference
+```
+
+### 3. Run GPU Docking With Slurm
+
+Submit one docking job per prepared candidate CSV. The archived final Slurm
+wrapper is:
+
+```text
+exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.sbatch.sh
+```
+
+Example:
+
+```bash
+sbatch exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.sbatch.sh \
+  exps/fig5_new_case_study/docking_rerun_inputs/gen/DeepICL/68/0.10_-1.0.csv
+```
+
+The wrapper stages `reference.tar` or `REFERENCE_DIR_PATH` to `/scratch/$USER`,
+runs:
+
+```text
+exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.py
+```
+
+and writes result tarballs under:
+
+```text
+exps/fig5_new_case_study/docking_rerun_inputs/docking_gpu_results
+```
+
+Set `KEEP_DOCKING_SCRATCH=1` to preserve the per-job scratch directory for
+debugging. The default behavior removes scratch files after creating the
+persistent tarball. Set `ARCHIVE_DOCKING_STRUCTURES=1` to include intermediate
+ligand/receptor preparation files, Vina config/log files, and docked PDBQT
+outputs in the persistent tarball.
+
+After docking, regenerate the aggregate validity CSVs from the new
+`docking_gpu_results` tarballs with `compute_validity.py` as shown below.
+
+### 4. Optional Full Candidate Regeneration
+
+The package above is enough for docking-only verification of the reported
+molecule sets. To regenerate DeepBioisostere candidates before docking,
+candidate CSVs have the form:
 
 ```text
 exps/fig5_new_case_study/20250826_new_data_main_model/gen/<model>/<target_idx>/0.10_-1.0.csv
@@ -158,47 +257,13 @@ and target indices `36`, `68`, and `84`.
 Baseline candidate CSVs can be produced with `run_baseline.py` when reproducing
 the random, frequency-based, and MMPA-based strategies.
 
-### 3. Run GPU Docking With Slurm
-
-Submit one docking job per generated candidate CSV. The archived final Slurm
-wrapper is:
-
-```text
-exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.sbatch.sh
-```
-
-Example:
-
-```bash
-sbatch exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.sbatch.sh \
-  exps/fig5_new_case_study/20250826_new_data_main_model/gen/DeepICL/68/0.10_-1.0.csv
-```
-
-The wrapper stages `reference.tar` to `/scratch/$USER`, runs:
-
-```text
-exps/fig5_new_case_study/provenance/scripts/run_gpu_docking.py
-```
-
-and writes result tarballs under:
-
-```text
-exps/fig5_new_case_study/20250826_new_data_main_model/docking_gpu_results
-```
-
-Set `KEEP_DOCKING_SCRATCH=1` to preserve the per-job scratch directory for
-debugging. The default behavior removes scratch files after creating the
-persistent tarball. Set `ARCHIVE_DOCKING_STRUCTURES=1` to include intermediate
-ligand/receptor preparation files, Vina config/log files, and docked PDBQT
-outputs in the persistent tarball.
-
-The final successful jobs are listed in:
+The final successful archived jobs are listed in:
 
 ```text
 exps/fig5_new_case_study/provenance/final_docking_job_index.csv
 ```
 
-### 4. Recreate Table Source CSVs
+### 5. Recreate Table Source CSVs
 
 The submitted package includes the per-molecule raw docking summaries used to
 derive the success-rate tables:
@@ -225,7 +290,7 @@ from the newly produced docked `summary_*.csv` outputs with:
 ```bash
 python exps/fig5_new_case_study/provenance/scripts/compute_validity.py \
   run-root \
-  --run-root exps/fig5_new_case_study/20250826_new_data_main_model \
+  --run-root exps/fig5_new_case_study/docking_rerun_inputs \
   --model DeepICL \
   --target-idx 68 \
   --output-dir exps/fig5_new_case_study/table_2
@@ -259,7 +324,7 @@ SA_score = 10 - 9 * raw_SA
 
 Use half-up two-decimal rounding for final table display.
 
-### 5. Recreate Figure 5 Values
+### 6. Recreate Figure 5 Values
 
 The filtered candidate summary used immediately before drawing Figure 5 is:
 

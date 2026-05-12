@@ -22,14 +22,20 @@ if [ ! -f "$GIVEN_INPUT_CSV_FULL_PATH" ]; then
     exit 1
 fi
 
-: "${REFERENCE_TAR_PATH:?Set REFERENCE_TAR_PATH to the SBDD reference.tar path}"
+: "${REFERENCE_TAR_PATH:=}"
+: "${REFERENCE_DIR_PATH:=}"
 : "${VINA_GPU_EXECUTABLE_PATH:?Set VINA_GPU_EXECUTABLE_PATH to AutoDock-Vina-GPU}"
 : "${CUDA_OPENCL_PATH:?Set CUDA_OPENCL_PATH to the CUDA/OpenCL runtime path}"
 : "${CONDA_ENV_NAME:=docking}"
-: "${VINA_GPU_OPENCL_BINARY_PATH:=$VINA_GPU_EXECUTABLE_PATH}"
+: "${VINA_GPU_OPENCL_BINARY_PATH:=$(dirname "$VINA_GPU_EXECUTABLE_PATH")}"
 : "${BOOST_LIB_DIR:=}"
 : "${KEEP_DOCKING_SCRATCH:=0}"
 : "${ARCHIVE_DOCKING_STRUCTURES:=0}"
+
+if [ -z "$REFERENCE_TAR_PATH" ] && [ -z "$REFERENCE_DIR_PATH" ]; then
+    echo "SLURM ERROR: Set REFERENCE_TAR_PATH or REFERENCE_DIR_PATH."
+    exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_SCRIPT_FULL_PATH="${DOCKING_PYTHON_SCRIPT_PATH:-${SCRIPT_DIR}/run_gpu_docking.py}"
@@ -110,13 +116,6 @@ PYTHON_MAIN_SCRATCH_DIR="$JOB_SCRATCH_ROOT/python_processing_area"
 PYTHON_OUTPUT_SUBDIR_NAME="output_files_for_tar"
 BATCH_SIZE=120
 
-echo "SLURM INFO: Copying reference tar to scratch: $SCRATCH_REF_TAR_PATH"
-cp "$REFERENCE_TAR_PATH" "$SCRATCH_REF_TAR_PATH"
-if [ $? -ne 0 ]; then
-    echo "SLURM ERROR: Failed to copy reference tar"
-    exit 1
-fi
-
 echo "SLURM INFO: Creating extraction directory: $SCRATCH_REFS_DIR"
 mkdir -p "$SCRATCH_REFS_DIR"
 if [ $? -ne 0 ]; then
@@ -124,11 +123,28 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "SLURM INFO: Extracting reference tar into $SCRATCH_REFS_DIR"
-tar xf "$SCRATCH_REF_TAR_PATH" -C "$SCRATCH_REFS_DIR"
-if [ $? -ne 0 ]; then
-    echo "SLURM ERROR: Failed to extract reference tar"
-    exit 1
+if [ -n "$REFERENCE_TAR_PATH" ]; then
+    echo "SLURM INFO: Copying reference tar to scratch: $SCRATCH_REF_TAR_PATH"
+    cp "$REFERENCE_TAR_PATH" "$SCRATCH_REF_TAR_PATH"
+    if [ $? -ne 0 ]; then
+        echo "SLURM ERROR: Failed to copy reference tar"
+        exit 1
+    fi
+
+    echo "SLURM INFO: Extracting reference tar into $SCRATCH_REFS_DIR"
+    tar xf "$SCRATCH_REF_TAR_PATH" -C "$SCRATCH_REFS_DIR"
+    if [ $? -ne 0 ]; then
+        echo "SLURM ERROR: Failed to extract reference tar"
+        exit 1
+    fi
+else
+    echo "SLURM INFO: Copying reference directory to scratch: $REFERENCE_DIR_PATH"
+    mkdir -p "$SCRATCH_REFS_DIR/reference"
+    cp -a "$REFERENCE_DIR_PATH"/. "$SCRATCH_REFS_DIR/reference/"
+    if [ $? -ne 0 ]; then
+        echo "SLURM ERROR: Failed to copy reference directory"
+        exit 1
+    fi
 fi
 
 echo "SLURM INFO: Creating Python main scratch directory: $PYTHON_MAIN_SCRATCH_DIR"

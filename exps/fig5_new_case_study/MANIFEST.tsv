@@ -35,6 +35,7 @@ provenance/slurm_logs/GPU_*_2629*.out	provenance	SBDD workflow	Final Slurm stdou
 provenance/slurm_logs/GPU_*_2629*.err	provenance	SBDD workflow	Final Slurm stderr logs
 provenance/scripts/run_gpu_docking.py	script	SBDD workflow	Python docking script used by the final jobs
 provenance/scripts/run_gpu_docking.sbatch.sh	script	SBDD workflow	Slurm wrapper used by the final jobs
+provenance/scripts/prepare_docking_rerun_inputs.py	script	SBDD workflow	Generates clean /gen docking rerun input CSVs and reference.tar from packaged source data
 provenance/scripts/compute_validity.py	script	Table 2; Supplementary Table 7	Computes validity source CSVs from docked summary CSVs or docking result tarballs
 provenance/scripts/prepare_figure5_candidate_summary.py	script	Main Figure 5	Regenerates the filtered Figure 5 candidate summary from the full DeepICL target 4RV4 summary CSV
 provenance/scripts/process_molecules.py	script	SBDD workflow	Postprocessing helper for SBDD molecule/result files

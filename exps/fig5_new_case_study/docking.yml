@@ -11,11 +11,18 @@
 #
 # External runtime components used by the Slurm wrapper and not installed by
 # this conda file must be provided through environment variables:
-#   REFERENCE_TAR_PATH
+#   REFERENCE_TAR_PATH or REFERENCE_DIR_PATH
 #   VINA_GPU_EXECUTABLE_PATH
 #   VINA_GPU_OPENCL_BINARY_PATH
 #   CUDA_OPENCL_PATH
 #   BOOST_LIB_DIR
+#
+# Expected Vina-GPU source tree:
+#   https://github.com/DeltaGroupNJUPT/Vina-GPU-2.1/tree/main/AutoDock-Vina-GPU-2.1
+# VINA_GPU_EXECUTABLE_PATH should point to AutoDock-Vina-GPU-2-1. The OpenCL
+# kernel binaries Kernel1_Opt.bin and Kernel2_Opt.bin should live in
+# VINA_GPU_OPENCL_BINARY_PATH, usually the same directory as the executable.
+# CUDA/OpenCL runtime libraries must be visible in the runtime environment.
 #
 # Recreate the conda part with:
 #   conda env create -f exps/fig5_new_case_study/docking.yml

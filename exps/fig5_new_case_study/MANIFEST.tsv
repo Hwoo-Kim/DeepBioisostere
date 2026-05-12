@@ -1,0 +1,43 @@
+path	item	pdf_item	description
+README.md	documentation	all	SBDD source data folder overview
+docking.yml	environment	SBDD workflow	Conda export for the docking environment plus comments documenting external Vina-GPU/CUDA/Boost runtime paths
+issues_to_fix.md	documentation	Supplementary Table 7	Manuscript caption mismatch and Fig. 5 CSV naming issue
+final_handoff.md	documentation	all	Final handoff status after resolving manuscript fixes and Fig. 5 CSV provenance
+reproducibility_check.md	documentation	all	Lightweight reproducibility check against DeepBioisostere.pdf values
+repo_only_recheck.md	documentation	all	Recheck using only CSV files inside the current repository plus git history
+reproduce_results.py	script	all	Standard-library script that reads packaged source CSVs, recomputes derived SBDD values from raw summaries, and checks Figure 5, raw-eval, and Slurm provenance
+target_mapping.csv	metadata	Table 2; Figure 5; Supplementary Table 6; Supplementary Table 7	Mapping from target index to PDB ID and reference SDF label
+table_2/raw_summaries/summary_*_68_*.csv	raw_summary	Main Table 2	Per-molecule docked summary CSVs used to recompute Main Table 2 validity rates
+table_2/validity_DeepICL_68.csv	source_csv	Main Table 2	DeepICL-origin hit candidates on target 4RV4
+table_2/validity_pocket2mol_68.csv	source_csv	Main Table 2	Pocket2Mol-origin hit candidates on target 4RV4
+table_2/validity_targetdiff_68.csv	source_csv	Main Table 2	TargetDiff-origin hit candidates on target 4RV4
+table_2/validity_decompdiff_68.csv	source_csv	Main Table 2	DecompDiff-origin hit candidates on target 4RV4
+supplementary_table_6/avg_result_all_targets.csv	source_csv	Supplementary Table 6	All-target average QED, raw SA, and docking summary
+supplementary_table_6/table6_selected_targets.csv	derived_csv	Supplementary Table 6	Selected targets with transformed SA score used in PDF
+supplementary_table_7/raw_summaries/summary_*_36_*.csv	raw_summary	Supplementary Table 7	Per-molecule docked summary CSVs used to recompute target 4P77 validity rates
+supplementary_table_7/raw_summaries/summary_*_84_*.csv	raw_summary	Supplementary Table 7	Per-molecule docked summary CSVs used to recompute target 2EWY validity rates
+supplementary_table_7/validity_*_36.csv	source_csv	Supplementary Table 7	Additional target 4P77 success-rate source data
+supplementary_table_7/validity_*_84.csv	source_csv	Supplementary Table 7	Additional target 2EWY success-rate source data
+figure_5/summary_DeepICL_68_0.10_-1.0.csv	source_csv	Main Figure 5	Full DeepICL target 4RV4 docking and property summary
+figure_5/figure5_candidate_summary.csv	derived_csv	Main Figure 5	Filtered candidate summary used immediately before drawing the final Figure 5 molecule panels
+figure_5/filtered_results_68_tracked_head.csv	source_csv	Main Figure 5	Restored tracked filtered_results_68.csv copied from HEAD/worktree for provenance
+figure_5/filtered_deepicl_68.csv	source_csv	Main Figure 5	Filtered candidate rows used to select example molecules
+figure_5/figure5_selected_examples.csv	derived_csv	Main Figure 5	Two explicit rows corresponding to PDF Fig. 5 panels
+figure_5/images/figure5a_deepicl68_input28_gen59.png	image	Main Figure 5	Panel a candidate image
+figure_5/images/figure5b_deepicl68_input7_gen64.png	image	Main Figure 5	Panel b candidate image
+raw_eval/*_eval_result.csv	raw_csv	SBDD workflow	Raw SBDD model result.csv files copied from shared evaluation root
+raw_references/reference/gen/36/*	raw_reference	Supplementary Table 7	Selected target 4P77 protein, ligand, and reference affinity files
+raw_references/reference/gen/68/*	raw_reference	Table 2; Figure 5	Selected target 4RV4 protein, ligand, and reference affinity files
+raw_references/reference/gen/84/*	raw_reference	Supplementary Table 7	Selected target 2EWY protein, ligand, and reference affinity files
+provenance/final_docking_job_index.csv	provenance	SBDD workflow	Final main/ablation Slurm job index for jobs 262943-262966
+provenance/docking_tarball_inventory.tsv	provenance	SBDD workflow	Paths and sizes for final docking result tarballs; tarballs are indexed, not copied
+provenance/slurm_logs/GPU_*_2629*.out	provenance	SBDD workflow	Final Slurm stdout logs
+provenance/slurm_logs/GPU_*_2629*.err	provenance	SBDD workflow	Final Slurm stderr logs
+provenance/scripts/run_gpu_docking.py	script	SBDD workflow	Python docking script used by the final jobs
+provenance/scripts/run_gpu_docking.sbatch.sh	script	SBDD workflow	Slurm wrapper used by the final jobs
+provenance/scripts/prepare_docking_rerun_inputs.py	script	SBDD workflow	Generates clean /gen docking rerun input CSVs and reference.tar from packaged source data
+provenance/scripts/compute_validity.py	script	Table 2; Supplementary Table 7	Computes validity source CSVs from docked summary CSVs or docking result tarballs
+provenance/scripts/prepare_figure5_candidate_summary.py	script	Main Figure 5	Regenerates the filtered Figure 5 candidate summary from the full DeepICL target 4RV4 summary CSV
+provenance/scripts/process_molecules.py	script	SBDD workflow	Postprocessing helper for SBDD molecule/result files
+provenance/scripts/select_target.py	script	Supplementary Table 6	Target selection helper
+provenance/scripts/analyze_gens.py	script	SBDD workflow	Generation analysis helper

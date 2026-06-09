@@ -30,7 +30,7 @@ pip install -e .
 This will configure a new conda environment named 'Bioiso'.
 ## Training data for DeepBioisostere
 
-1. If you want to re-train DeepBioisostere model *without* data generation, training data are available at the following Zenodo repository under the Apache License 2.0: https://doi.org/10.5281/zenodo.17804556. After downloading the dataset, go to [Training DeepBioisostere](#training-deepbioisostere).
+1. If you want to re-train DeepBioisostere model *without* data generation, training data are available at the following Zenodo repository under the Apache License 2.0: [https://doi.org/10.5281/zenodo.17804556](https://doi.org/10.5281/zenodo.17808763). After downloading the dataset, go to [Training DeepBioisostere](#training-deepbioisostere).
 
 2. Or, if you want to re-train DeepBioisostere model *with* data generation by MMP analysis, go to [MMP Analysis](#mmp-analysis).
 

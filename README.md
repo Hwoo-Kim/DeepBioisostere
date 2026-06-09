@@ -1,5 +1,7 @@
 # DeepBioisostere
-Deep Learning-based Bioisosteric Replacements for Optimization of Multiple Molecular Properties
+Autonomous Bioisosteric Replacement for Multi-Property Optimization in Drug Design
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20603082.svg)](https://doi.org/10.5281/zenodo.20603082)
 
 # Table of Contents
 - [Install Dependencies](#install-dependencies)

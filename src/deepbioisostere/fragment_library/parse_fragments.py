@@ -247,9 +247,7 @@ class FragLibProcessor:
         frag_smi_to_feature = dict()
         parsed_frag_files = [f"{idx}.pt" for idx in range(num_frags)]
         for f in parsed_frag_files:
-            frag_feature = torch.load(
-                os.path.join(frag_tmp_dir, f), weights_only=False
-            )
+            frag_feature = torch.load(os.path.join(frag_tmp_dir, f), weights_only=False)
             assert frag_feature, "MolFromSmiles for fragment yielded None."
             frag_smi_to_feature[frag_feature.smiles] = frag_feature
         shutil.rmtree(frag_tmp_dir)
@@ -290,9 +288,24 @@ class FragLibProcessor:
         idx, frag_inform = frag_inform
         frag_smi = frag_inform["FRAG-SMI"]
 
-        # Parsing to tensor object
+        # Parsing to tensor object.
+        #
+        # original_smiles pins the stored SMILES to the exact string in
+        # fragment_library.csv instead of re-canonicalising it. RDKit's
+        # canonical ranking for stereocentres changed after the library was
+        # built (2022.03): 1712 of the 145854 insertion fragments round-trip to
+        # a different string under 2026.03, e.g.
+        #   [5*]N1C[C@H](C)O[C@H](C)C1  ->  [5*]N1C[C@@H](C)O[C@@H](C)C1
+        # Keying the feature dict on the re-canonicalised form makes those
+        # fragments unfindable by the csv's own SMILES, which surfaces as a
+        # KeyError when the fragment library is loaded.
+        #
+        # The csv is authoritative: the training data references fragments by
+        # NEW-FRAG-IDX, i.e. by csv row order, so the csv string is the correct
+        # identity to key on. This only affects the stored string; atom parsing
+        # is unchanged.
         frag_mol = Chem.MolFromSmiles(frag_smi)
-        frag_feature = from_mol(frag_mol, type="Frag")
+        frag_feature = from_mol(frag_mol, type="Frag", original_smiles=frag_smi)
         torch.save(frag_feature, f"{frag_tmp_dir}/{idx}.pt")
 
         # Parsing for brics type

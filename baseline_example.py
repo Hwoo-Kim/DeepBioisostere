@@ -3,10 +3,10 @@ import time
 
 from rdkit import Chem
 
-from scripts.baseline_generator import BaselineGenerator
-from scripts.conditioning import Conditioner
-from scripts.model import DeepBioisostere
-from scripts.property import calc_logP, calc_Mw, calc_QED, calc_SAscore
+from deepbioisostere.baseline_generator import BaselineGenerator
+from deepbioisostere.conditioning import Conditioner
+from deepbioisostere.model import DeepBioisostere
+from deepbioisostere.property import calc_logP, calc_Mw, calc_QED, calc_SAscore
 
 
 def print_properties(smi: str):

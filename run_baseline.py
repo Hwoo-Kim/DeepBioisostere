@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from scripts.utils import FrequencySampler, set_seed
+from deepbioisostere.utils import FrequencySampler, set_seed
 
 
 def unnormalize_sa(norm_sa):

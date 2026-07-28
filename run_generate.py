@@ -6,10 +6,10 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from scripts.generate import Generator
-from scripts.conditioning import Conditioner
-from scripts.model import DeepBioisostere
-from scripts.utils import set_seed
+from deepbioisostere.generate import Generator
+from deepbioisostere.conditioning import Conditioner
+from deepbioisostere.model import DeepBioisostere
+from deepbioisostere.utils import set_seed
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False

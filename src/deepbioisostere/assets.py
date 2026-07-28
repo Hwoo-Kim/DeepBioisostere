@@ -178,24 +178,24 @@ def resolve_checkpoint(
     _check_availability(normalized, ablation)
     filename = checkpoint_filename(normalized, ablation)
 
-    search_dirs: list[Path] = []
+    # An explicit directory is exclusive, not merely first in line. Falling
+    # through to $DEEPBIOISOSTERE_ASSET_DIR or the Hub would quietly hand back
+    # a *different* checkpoint than the one that was asked for.
     if local_dir is not None:
-        search_dirs.append(Path(local_dir).expanduser())
-    if (override := _asset_dir_override()) is not None:
-        search_dirs.append(override)
-        search_dirs.append(override / "model_save")
-    for directory in search_dirs:
-        candidate = directory / filename
+        explicit = Path(local_dir).expanduser()
+        candidate = explicit / filename
         if candidate.is_file():
             return candidate
-
-    if local_dir is not None:
-        # An explicit directory was given but does not hold the file. Say so
-        # rather than silently reaching for the network.
         raise AssetError(
-            f"{filename!r} was not found in {Path(local_dir).expanduser()}. "
+            f"{filename!r} was not found in {explicit}. "
             "Omit the local path to fetch it from the Hugging Face Hub."
         )
+
+    if (override := _asset_dir_override()) is not None:
+        for directory in (override, override / "model_save"):
+            candidate = directory / filename
+            if candidate.is_file():
+                return candidate
 
     cached = default_cache_dir() / "checkpoints"
     if (candidate := cached / filename).is_file():
@@ -212,22 +212,21 @@ def resolve_fragment_library(
     ``fragment_library.csv``, and it must be writable, because the derived
     tensor caches are generated into it on first use if they are absent.
     """
-    search_dirs: list[Path] = []
+    # As in resolve_checkpoint, an explicit directory is exclusive.
     if local_dir is not None:
-        search_dirs.append(Path(local_dir).expanduser())
-    if (override := _asset_dir_override()) is not None:
-        search_dirs.append(override)
-        search_dirs.append(override / "fragment_library")
-    for directory in search_dirs:
-        if (directory / FRAGMENT_LIBRARY_CSV).is_file():
-            return directory
-
-    if local_dir is not None:
+        explicit = Path(local_dir).expanduser()
+        if (explicit / FRAGMENT_LIBRARY_CSV).is_file():
+            return explicit
         raise AssetError(
-            f"{FRAGMENT_LIBRARY_CSV!r} was not found in "
-            f"{Path(local_dir).expanduser()}. Omit the local path to fetch the "
-            "fragment library from the Hugging Face Hub."
+            f"{FRAGMENT_LIBRARY_CSV!r} was not found in {explicit}. "
+            "Omit the local path to fetch the fragment library from the "
+            "Hugging Face Hub."
         )
+
+    if (override := _asset_dir_override()) is not None:
+        for directory in (override, override / "fragment_library"):
+            if (directory / FRAGMENT_LIBRARY_CSV).is_file():
+                return directory
 
     cached = default_cache_dir() / "fragment_library"
     if not (cached / FRAGMENT_LIBRARY_CSV).is_file():

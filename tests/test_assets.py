@@ -76,6 +76,40 @@ class TestResolution:
         with pytest.raises(AssetError, match="was not found in"):
             resolve_checkpoint(["mw"], local_dir=tmp_path)
 
+    def test_explicit_local_dir_does_not_fall_through_to_env(
+        self, tmp_path, monkeypatch
+    ):
+        """An explicit directory is exclusive, not merely first in line.
+
+        Regression test. Previously both the explicit directory and
+        $DEEPBIOISOSTERE_ASSET_DIR were searched, so an explicit path that
+        missed would silently return a *different* checkpoint from the env
+        directory. That only shows up when the env var happens to be set, which
+        is why it survived a local run and failed on a compute node.
+        """
+        decoy = tmp_path / "decoy"
+        (decoy / "model_save").mkdir(parents=True)
+        (decoy / "model_save" / "DeepBioisostere_mw.pt").write_bytes(b"decoy")
+        monkeypatch.setenv("DEEPBIOISOSTERE_ASSET_DIR", str(decoy))
+
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        with pytest.raises(AssetError, match="was not found in"):
+            resolve_checkpoint(["mw"], local_dir=empty)
+
+    def test_explicit_frag_lib_dir_does_not_fall_through_to_env(
+        self, tmp_path, monkeypatch
+    ):
+        decoy = tmp_path / "decoy" / "fragment_library"
+        decoy.mkdir(parents=True)
+        (decoy / "fragment_library.csv").write_text("INDEX\tFRAG-SMI\n")
+        monkeypatch.setenv("DEEPBIOISOSTERE_ASSET_DIR", str(tmp_path / "decoy"))
+
+        empty = tmp_path / "empty"
+        empty.mkdir()
+        with pytest.raises(AssetError, match="was not found in"):
+            resolve_fragment_library(local_dir=empty)
+
     def test_asset_dir_env_is_used(self, tmp_path, monkeypatch):
         (tmp_path / "model_save").mkdir()
         target = tmp_path / "model_save" / "DeepBioisostere_qed.pt"

@@ -1,0 +1,117 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deepbioisostere"
+version = "1.0.0"
+description = "Autonomous bioisosteric replacement for multi-property optimization in drug design"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = [
+    "bioisostere",
+    "drug-design",
+    "molecular-optimization",
+    "graph-neural-network",
+    "cheminformatics",
+]
+authors = [
+    { name = "Hyeongwoo Kim" },
+    { name = "Seokhyun Moon" },
+    { name = "Wonho Zhung" },
+    { name = "Shinwoo Kim" },
+    { name = "Jaechang Lim" },
+    { name = "Woo Youn Kim", email = "wooyoun@kaist.ac.kr" },
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+    "huggingface-hub>=0.30",
+    "numpy>=1.26",
+    "pandas>=2.2",
+    "rdkit>=2024.3",
+    "scipy>=1.13",
+    "torch>=2.6",
+    "torch-geometric>=2.6",
+    "tqdm>=4.66",
+    "typer>=0.12",
+]
+
+[project.optional-dependencies]
+# Extras for reproducing the figures in exps/, not needed to run the model.
+notebook = [
+    "cairosvg>=2.7",
+    "ipykernel>=6.29",
+    "ipywidgets>=8.1",
+    "matplotlib>=3.8",
+    "notebook>=7.2",
+    "seaborn>=0.13",
+]
+
+[project.urls]
+Homepage = "https://hwoo-kim.github.io/DeepBioisostere/"
+Repository = "https://github.com/Hwoo-Kim/DeepBioisostere"
+Paper = "https://doi.org/10.1038/s41467-026-75512-9"
+Dataset = "https://doi.org/10.5281/zenodo.20603082"
+
+[project.scripts]
+deepbioisostere = "deepbioisostere.cli:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.6",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/deepbioisostere"]
+
+[tool.hatch.build.targets.sdist]
+# Ship the source and the license, not the 200 MB of checkpoints or the
+# figure-reproduction artifacts under exps/.
+include = [
+    "src/deepbioisostere",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+src = ["src"]
+
+[tool.ruff.lint]
+# Deliberately close to ruff's default set. This package is the reference
+# implementation for a published paper: reformatting ~6,800 lines of research
+# code to satisfy stylistic rules would produce a large, unreviewable diff over
+# code whose numerical behaviour is the artifact being preserved. Rules that
+# catch real defects are on; rules that only restyle are not.
+select = ["E4", "E7", "E9", "F", "I", "B"]
+ignore = [
+    # Mutable/None defaults are load bearing in signatures the published
+    # examples call directly.
+    "B006",
+    # zip(..., strict=) cannot be added without re-verifying every call site
+    # against the paper's behaviour.
+    "B905",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Re-exports and the lazy __getattr__ shim.
+"src/deepbioisostere/__init__.py" = ["F401"]
+# Declaring options as defaults is Typer's required idiom, not a bug.
+"src/deepbioisostere/cli.py" = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

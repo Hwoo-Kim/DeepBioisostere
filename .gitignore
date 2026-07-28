@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Environments
+.venv/
+.conda_env/
+
+# uv
+.uv/
+
+# Derived fragment-library caches (regenerated from fragment_library.csv)
+frag_features.pkl
+frag_brics_maskings.pkl
+frags_tmp/
+
+# Run outputs
+generation_result*.csv
+baseline_strategy_*_results.csv
+*.log
+
+# Slurm job logs
+deepbio_validate_*.out
+deepbio_validate_*.err
+*_[0-9][0-9][0-9][0-9][0-9][0-9].out
+*_[0-9][0-9][0-9][0-9][0-9][0-9].err

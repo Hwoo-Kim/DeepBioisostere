@@ -42,7 +42,9 @@ class BaselineGenerator(Generator):
     def __init__(
         self,
         model: DeepBioisostere = None,
-        processed_frag_dir: Union[str, Path] = None,
+        # None means "resolve it": Generator.__init__ falls back to a local
+        # checkout, then $DEEPBIOISOSTERE_ASSET_DIR, then the Hugging Face Hub.
+        processed_frag_dir: Union[str, Path, None] = None,
         num_sample_each_mol: Union[int, str] = None,
         device: torch.device = None,
         num_cores: int = None,
@@ -172,13 +174,22 @@ class BaselineGenerator(Generator):
         2. Applies BRICS type compatibility rules for insertion fragment selection
         3. Uses frequency-based sampling from compatible insertion fragments
         """
-        ampn_emb = self.model.ampn(data)
+        # Conditioning goes in at the ATOM level, before the AMPN, exactly as
+        # Generator.generate does it.
+        #
+        # This path used to append the condition to `ampn_emb.x_f` *after* the
+        # AMPN instead -- an older scheme that the published checkpoints were
+        # not trained with. Against those weights it never ran: `self.model.ampn`
+        # raises `mat1 and mat2 shapes cannot be multiplied (55x66 and 68x128)`
+        # because it wants mol_node_features + cond_dim inputs and gets
+        # mol_node_features. Sharing Generator's helper is what keeps the two
+        # from drifting apart again.
         if self.conditioner:
-            cond_embeddings = []
             for prop in self.properties:
-                cond_embeddings.append(batch[prop])
-            condition_embedding = torch.cat(cond_embeddings, dim=1)
-            ampn_emb.x_f = torch.cat([ampn_emb.x_f, condition_embedding], dim=1)
+                batch[prop] = batch[prop].to(self.device)
+        data = self._inject_conditioning(batch, data)
+
+        ampn_emb = self.model.ampn(data)
         mol_emb = self.model.fmpn(ampn_emb)
 
         leaving_subgraph_probs, subgraph_embed_vector = (

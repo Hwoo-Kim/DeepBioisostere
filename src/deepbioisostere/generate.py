@@ -208,19 +208,7 @@ class Generator:
                     batch[prop] = batch[prop].to(self.device)
 
             # 1. Inject property conditioning at atom level then embed
-            if self.conditioner and len(self.properties) > 0:
-                cond_embeddings = [batch[prop] for prop in self.properties]
-                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
-                condition_embedding = condition_embedding.to(data.x_n.device)
-                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
-                data.x_n = torch.cat(
-                    [
-                        data.x_n[:, : self.model.mol_node_features],
-                        cond_per_atom,
-                        data.x_n[:, self.model.mol_node_features :],
-                    ],
-                    dim=1,
-                )
+            data = self._inject_conditioning(batch, data)
             ampn_emb = self.model.ampn(data)
             mol_emb = self.model.fmpn(ampn_emb)
 
@@ -342,19 +330,7 @@ class Generator:
                     batch[prop] = batch[prop].to(self.device)
 
             # 1. Inject property conditioning at atom level then embed
-            if self.conditioner and len(self.properties) > 0:
-                cond_embeddings = [batch[prop] for prop in self.properties]
-                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
-                condition_embedding = condition_embedding.to(data.x_n.device)
-                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
-                data.x_n = torch.cat(
-                    [
-                        data.x_n[:, : self.model.mol_node_features],
-                        cond_per_atom,
-                        data.x_n[:, self.model.mol_node_features :],
-                    ],
-                    dim=1,
-                )
+            data = self._inject_conditioning(batch, data)
             ampn_emb = self.model.ampn(data)
             mol_emb = self.model.fmpn(ampn_emb)
 
@@ -447,19 +423,7 @@ class Generator:
                     batch[prop] = batch[prop].to(self.device)
 
             # 1. Inject property conditioning at atom level then embed
-            if self.conditioner and len(self.properties) > 0:
-                cond_embeddings = [batch[prop] for prop in self.properties]
-                condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
-                condition_embedding = condition_embedding.to(data.x_n.device)
-                cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
-                data.x_n = torch.cat(
-                    [
-                        data.x_n[:, : self.model.mol_node_features],
-                        cond_per_atom,
-                        data.x_n[:, self.model.mol_node_features :],
-                    ],
-                    dim=1,
-                )
+            data = self._inject_conditioning(batch, data)
             ampn_emb = self.model.ampn(data)
             mol_emb = self.model.fmpn(ampn_emb)
 
@@ -606,6 +570,35 @@ class Generator:
         return
 
     @torch.no_grad()
+    def _inject_conditioning(self, batch, data):
+        """Splice the property condition into the atom features, in place.
+
+        The conditioned checkpoints were trained with the target concatenated
+        into every atom's feature vector *before* the AMPN, sitting between the
+        molecule's own node features and whatever follows them -- hence the
+        three-way split rather than a plain append. Skipping this leaves
+        ``model.ampn`` with ``mol_node_features`` inputs where it wants
+        ``mol_node_features + cond_dim``, which surfaces as a matmul shape
+        error rather than as a quietly wrong number.
+
+        Returns ``data`` for call-site readability; the mutation is in place.
+        """
+        if not self.conditioner or not self.properties:
+            return data
+        cond_embeddings = [batch[prop] for prop in self.properties]
+        condition_embedding = torch.cat(cond_embeddings, dim=1)  # [F, cond_dim]
+        condition_embedding = condition_embedding.to(data.x_n.device)
+        cond_per_atom = condition_embedding[data.x_f]  # [N, cond_dim]
+        data.x_n = torch.cat(
+            [
+                data.x_n[:, : self.model.mol_node_features],
+                cond_per_atom,
+                data.x_n[:, self.model.mol_node_features :],
+            ],
+            dim=1,
+        )
+        return data
+
     def score_modification_position(
         self, mol_emb: Tensor, batch: Batch
     ) -> Tuple[Tensor, Tensor]:

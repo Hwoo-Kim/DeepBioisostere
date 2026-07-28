@@ -7,12 +7,11 @@ import torch
 from torch.utils.data import RandomSampler, WeightedRandomSampler
 from torch_geometric.loader import DataLoader
 
-from scripts.arguments import get_train_args_parser
-from scripts.conditioning import Conditioner
-from scripts.dataset import FragmentLibrary, TrainCollator, TrainDataset
-from scripts.model import DeepBioisostere
-from scripts.train import LR_Scheduler, Trainer
-from scripts.utils import Logger, set_cuda_visible_devices, set_seed, train_path_setting
+from .conditioning import Conditioner
+from .dataset import FragmentLibrary, TrainCollator, TrainDataset
+from .model import DeepBioisostere
+from .train import LR_Scheduler, Trainer
+from .utils import Logger, set_cuda_visible_devices, set_seed, train_path_setting
 
 torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
@@ -322,9 +321,3 @@ def main(args):
     with open(f"{args.save_dir}/loss_history.pkl", "wb") as fw:
         pickle.dump({"train": train_loss_history, "val": val_loss_history}, fw)
     return True
-
-
-# main operation:
-if __name__ == "__main__":
-    args = get_train_args_parser()
-    main(args)

@@ -3,29 +3,19 @@ import os
 import os.path as op
 import pickle
 import shutil
-import sys
 from functools import partial
+from multiprocessing import cpu_count
 from pathlib import Path
 from typing import Tuple
 
-from tqdm import tqdm
-
-# import time
-
-
-proj_dir = op.dirname(op.dirname(op.dirname(op.realpath(__file__))))
-sys.path.append(proj_dir)
-
-from multiprocessing import cpu_count
-
-# import numpy as np
 import pandas
 import torch
 import torch.multiprocessing as mp
 from rdkit import Chem
+from tqdm import tqdm
 
-from scripts.brics import brics
-from scripts.feature import from_mol
+from ..brics import brics
+from ..feature import from_mol
 
 
 class FragLibProcessor:
@@ -257,7 +247,9 @@ class FragLibProcessor:
         frag_smi_to_feature = dict()
         parsed_frag_files = [f"{idx}.pt" for idx in range(num_frags)]
         for f in parsed_frag_files:
-            frag_feature = torch.load(os.path.join(frag_tmp_dir, f))
+            frag_feature = torch.load(
+                os.path.join(frag_tmp_dir, f), weights_only=False
+            )
             assert frag_feature, "MolFromSmiles for fragment yielded None."
             frag_smi_to_feature[frag_feature.smiles] = frag_feature
         shutil.rmtree(frag_tmp_dir)
@@ -317,7 +309,9 @@ class FragLibProcessor:
 
         parsed_frag_files = [f"{idx}.pt" for idx in range(num_data)]
         for f in parsed_frag_files:
-            frag_feature = torch.load(os.path.join(self.frag_tmp_dir, f))
+            frag_feature = torch.load(
+                os.path.join(self.frag_tmp_dir, f), weights_only=False
+            )
             assert frag_feature, "MolFromSmiles for fragment yielded None."
             frag_smi_to_feature[frag_feature.smiles] = frag_feature
 

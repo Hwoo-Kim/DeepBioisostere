@@ -4,8 +4,8 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=02:00:00
-#SBATCH -o %x_%j.out
-#SBATCH -e %x_%j.err
+#SBATCH -o /home/mseok/slurm-logs/%x_%j.out
+#SBATCH -e /home/mseok/slurm-logs/%x_%j.err
 
 # End-to-end validation of the packaging refactor.
 #

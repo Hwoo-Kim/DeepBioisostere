@@ -722,6 +722,36 @@ class InferenceCollator:
         return collated_batch
 
 
+# The fragment-library caches published with the paper were pickled when this
+# code was a flat set of top-level modules, so they name their classes
+# `data.PairData` rather than `deepbioisostere.data.PairData`. Those files are
+# the exact artifacts behind the published results, so they are kept
+# byte-identical and the rename is absorbed here, on read, instead of by
+# rewriting them. Caches built by this package pickle under the current names
+# and pass through untouched.
+_LEGACY_PICKLE_MODULES = {
+    "data": "deepbioisostere.data",
+    "feature": "deepbioisostere.feature",
+    "scripts.data": "deepbioisostere.data",
+    "scripts.feature": "deepbioisostere.feature",
+}
+
+
+class _LegacyUnpickler(pickle.Unpickler):
+    """Unpickler that resolves pre-package module paths to their new homes."""
+
+    def find_class(self, module: str, name: str):
+        return super().find_class(
+            _LEGACY_PICKLE_MODULES.get(module, module), name
+        )
+
+
+def _load_frag_cache(path: Union[str, Path]):
+    """Load a fragment-library cache written by either code layout."""
+    with open(path, "rb") as fr:
+        return _LegacyUnpickler(fr).load()
+
+
 class FragmentLibrary(Dataset):
     FRAGMENT_LIBRARY_CSV = "fragment_library.csv"
     FRAG_FEATURES = "frag_features.pkl"
@@ -795,11 +825,11 @@ class FragmentLibrary(Dataset):
             )
             print("Fragment library parsing has been done.")
 
-        with open(frag_feature_path, "rb") as fr:
-            smi_to_frag_features = pickle.load(fr)  # Dict[SMILES, PairData]
+        smi_to_frag_features = _load_frag_cache(  # Dict[SMILES, PairData]
+            frag_feature_path
+        )
         if with_maskings:
-            with open(frag_brics_masking_path, "rb") as fr:
-                frag_brics_maskings = pickle.load(fr)
+            frag_brics_maskings = _load_frag_cache(frag_brics_masking_path)
         else:
             frag_brics_maskings = None
 

@@ -59,7 +59,7 @@ notebook = [
 ]
 
 [project.urls]
-Homepage = "https://hwoo-kim.github.io/DeepBioisostere/"
+Homepage = "https://mseok.github.io/DeepBioisostere/"
 Repository = "https://github.com/Hwoo-Kim/DeepBioisostere"
 Paper = "https://doi.org/10.1038/s41467-026-75512-9"
 Dataset = "https://doi.org/10.5281/zenodo.20603082"
@@ -72,6 +72,25 @@ dev = [
     "pytest>=8.2",
     "ruff>=0.6",
 ]
+
+# ---------------------------------------------------------------------------
+# uv-only configuration. This does not appear in the built wheel or sdist, so
+# it constrains this checkout's environment and nobody else's: a `pip install
+# deepbioisostere` still resolves torch from PyPI as usual.
+#
+# PyPI's default torch wheels are now built against CUDA 13.0, which requires a
+# 580+ driver. The GPU nodes here report a 12.4 driver, so those wheels abort at
+# `torch.cuda.init()`. CUDA 12.x has minor-version compatibility, so a cu124
+# build runs on any 12.x driver; a cu130 build does not, because 13.0 is a major
+# bump. Pin to cu124.
+# ---------------------------------------------------------------------------
+[[tool.uv.index]]
+name = "pytorch-cu124"
+url = "https://download.pytorch.org/whl/cu124"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/deepbioisostere"]

@@ -6,8 +6,8 @@ from pathlib import Path
 import pandas as pd
 import torch
 
-from deepbioisostere.generate import Generator
 from deepbioisostere.conditioning import Conditioner
+from deepbioisostere.generate import Generator
 from deepbioisostere.model import DeepBioisostere
 from deepbioisostere.utils import set_seed
 
@@ -35,29 +35,36 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sbdd_gen_csv_dir",
-        help="Directory containing the SBDD generation CSV file.",
+        help=(
+            "Directory holding <model_name>_eval/result.csv for the SBDD "
+            "baselines. This is study-specific input with no sensible default."
+        ),
         type=Path,
-        default=Path("/home/share/DATA/wonho_SBDD_models_eval"),
+        required=True,
     )
     parser.add_argument(
         "--result_dir",
-        help="Directory to save the generated results.",
+        help="Directory to save the generated results (default: ./fig5_results).",
         type=Path,
-        default=Path(
-            "/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250611_final"
-        ),
+        default=Path("fig5_results"),
     )
     parser.add_argument(
         "--trained_model_dir",
-        help="Directory containing the trained model.",
+        help=(
+            "Directory holding the checkpoints. Omit to resolve them the normal "
+            "way: local checkout, then $DEEPBIOISOSTERE_ASSET_DIR, then the Hub."
+        ),
         type=Path,
-        required=True,
+        default=None,
     )
     parser.add_argument(
         "--frag_lib_dir",
-        help="Directory containing the fragment library.",
+        help=(
+            "Directory holding the fragment library. Omit to resolve it the "
+            "normal way, as above."
+        ),
         type=Path,
-        required=True,
+        default=None,
     )
     parser.add_argument(
         "--ablation",
@@ -103,7 +110,9 @@ if __name__ == "__main__":
     # Set paths
     properties = sorted(args.properties)
     proj_dir = os.path.dirname(os.path.abspath(__file__))
-    if args.ablation:
+    if args.trained_model_dir is None:
+        model_path = None  # resolved by from_pretrained below
+    elif args.ablation:
         model_path = (
             args.trained_model_dir
             / f"DeepBioisostere_{'_'.join(properties)}_ablation.pt"
@@ -113,6 +122,7 @@ if __name__ == "__main__":
             args.trained_model_dir / f"DeepBioisostere_{'_'.join(properties)}.pt"
         )
 
+    # None here means "let Generator resolve it", not "no library".
     frag_lib_path = args.frag_lib_dir
     output_path = (
         args.result_dir
@@ -131,8 +141,8 @@ if __name__ == "__main__":
     print(f"new_frag_type: {new_frag_type}")
     print(f"properties: {properties}")
     print(f"proj_dir: {proj_dir}")
-    print(f"model_path: {model_path}")
-    print(f"frag_lib_path: {frag_lib_path}")
+    print(f"model_path: {model_path or '(resolved: checkout / env / Hub)'}")
+    print(f"frag_lib_path: {frag_lib_path or '(resolved: checkout / env / Hub)'}")
     print(f"output_path: {output_path}")
     print("=" * 30)
 
@@ -147,9 +157,14 @@ if __name__ == "__main__":
         "frag_message_passing_num_layer": 3,
         "use_subgraph_AMPN": use_subgraph_AMPN,
     }
-    model = DeepBioisostere.from_trained_model(
-        model_path, properties=properties, **model_args
-    )
+    if model_path is None:
+        model = DeepBioisostere.from_pretrained(
+            properties=properties, ablation=args.ablation, **model_args
+        )
+    else:
+        model = DeepBioisostere.from_trained_model(
+            model_path, properties=properties, **model_args
+        )
     conditioner = Conditioner(
         phase="generation",
         properties=properties,

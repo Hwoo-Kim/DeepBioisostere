@@ -600,25 +600,3 @@ class FrequencySampler:
         # 6. create DataFrame
         generation_df = pd.DataFrame(generation_dict)
         return generation_df
-
-
-if __name__ == "__main__":
-    import random
-
-    seed = 42
-    set_seed(seed)
-
-    num_samples = 1000
-    with open("/home/hwkim/DeepBioisostere/data/chembl.smi", "r") as f:
-        chembl_smis = [line.strip() for line in f.readlines()]
-    random.shuffle(chembl_smis)
-    test_smis = chembl_smis[:num_samples]
-    print(f"Testing on {len(test_smis)} molecules with seed {seed}.")
-
-    sampler = FrequencySampler(
-        smis=test_smis,
-        replacement_lib_path="/home/share/DATA/swkim/DeepBioisostere/replacement_library.csv",
-        generate_all_attachments=True,
-    )
-    gen_df = sampler.sample(num_samples=100, verbose=True)
-    gen_df.to_csv("sampled_molecules.csv", index=False, sep="\t")

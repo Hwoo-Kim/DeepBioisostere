@@ -4,7 +4,7 @@
 
 [![Paper](https://img.shields.io/badge/Nature%20Communications-10.1038%2Fs41467--026--75512--9-b31b1b)](https://doi.org/10.1038/s41467-026-75512-9)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20603082.svg)](https://doi.org/10.5281/zenodo.20603082)
-[![Project page](https://img.shields.io/badge/project-page-blue)](https://hwoo-kim.github.io/DeepBioisostere/)
+[![Project page](https://img.shields.io/badge/project-page-blue)](https://mseok.github.io/DeepBioisostere/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 DeepBioisostere is a deep generative model that performs end-to-end bioisosteric
@@ -48,9 +48,38 @@ There is no longer any conda requirement, and no `torch-scatter` /
 by native `torch` operations (see `src/deepbioisostere/scatter.py`). A plain
 `pip install` is sufficient on CPU and GPU alike.
 
-To install a GPU build of torch, follow the
-[PyTorch instructions](https://pytorch.org/get-started/locally/) for your CUDA
-version; everything else is pure Python.
+### If you have a GPU: check your driver first
+
+`pip install` pulls whatever torch PyPI currently defaults to, which is built
+against **CUDA 13.0** and needs a **580 or newer** driver. On an older driver it
+installs fine and then dies at the first GPU allocation:
+
+```
+RuntimeError: The NVIDIA driver on your system is too old (found version 12040)
+```
+
+Check what you have, and pick a matching index:
+
+```bash
+nvidia-smi --query-gpu=driver_version --format=csv,noheader
+```
+
+| Driver | CUDA | Install with |
+|---|---|---|
+| ≥ 580 | 13.0 | `pip install deepbioisostere` |
+| ≥ 525 | 12.x | `pip install deepbioisostere --extra-index-url https://download.pytorch.org/whl/cu124` |
+| none | CPU | `pip install deepbioisostere --extra-index-url https://download.pytorch.org/whl/cpu` |
+
+CUDA 12.x has minor-version compatibility, so a cu124 build runs on any 12.x
+driver. 13.0 is a major bump and does not fall back.
+
+Expect the install to fetch **2–4 GB**: torch, the `nvidia-*` CUDA runtime
+libraries and `triton` account for nearly all of it. This package itself is
+under 100 KB.
+
+A development checkout with `uv sync` is pinned to cu124 via `pyproject.toml`,
+which is a choice about *this repository's* environment and does not constrain
+anyone who installs the published package.
 
 ## Quick start
 
@@ -200,7 +229,8 @@ molecular pair analysis scripts are under `data/`. See
 ## Reproducing the paper
 
 `exps/` holds the analysis notebooks, source data and provenance for each
-figure:
+figure. **Start with [`exps/README.md`](exps/README.md)**, which indexes every
+input and output file; each figure directory has its own README as well.
 
 | Directory | Figure |
 |---|---|
@@ -210,6 +240,51 @@ figure:
 | `exps/fig5_sbdd_model_tests/`, `exps/fig5_new_case_study/` | Hit-to-lead case study |
 
 Install the notebook extras first: `uv sync --extra notebook`.
+
+### Figure 2, without the notebook
+
+```bash
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+python tools/reproduce_fig2.py --device cuda:0 --num-workers 2
+```
+
+Seed 2025, `num_sample_each_mol=10`, `new_frag_type="test"`, the three
+two-property checkpoints; diffed against
+`exps/fig2_multi_conditioning/csv_files/generation_result_seed2025.csv`.
+
+Three things decide whether it matches, and all three are easy to get wrong:
+
+**Determinism.** On CUDA, `scatter_add_` reduces with atomics, so summation
+order varies between runs. The perturbation is ~2e-6 — chemically meaningless —
+but it changes multinomial draws and therefore *which* molecules are sampled.
+Without `CUBLAS_WORKSPACE_CONFIG` plus `torch.use_deterministic_algorithms(True)`
+(which `reproduce_fig2.py` sets for you), two runs at the same seed agree on
+~98% of molecules rather than 100%. Measure it yourself:
+
+```bash
+python tools/determinism_probe.py --device cuda:0
+```
+
+Determinism costs roughly 50% wall clock. CPU generation is deterministic
+regardless. Pass `--allow-nondeterminism` to opt out.
+
+**The fragment library.** Generation picks an insertion fragment *by index* into
+the library, so a different library silently yields different molecules. The
+published runs used the **140,096**-fragment library, which is what the package
+resolves and what is on the Hub. A superseded 145,854-fragment copy exists and
+is not what the paper used.
+
+**`--num-workers` is a memory setting, not a speed one.** The generator holds the
+parsed library (~7 GB) before forking, and CPython's refcounter touches every
+object header, so each worker materialises its own copy rather than sharing it.
+At 8 workers this reached 51 GB RSS and exhausted `/dev/shm`. Use 2. Results are
+checkpointed per case, so a late failure does not discard earlier cases.
+
+**What counts as reproduced.** The criterion is the set of generated molecules —
+`(input, generated, leaving fragment, inserting fragment)` — not bit-equality of
+`PREDICTED-PROB`, which carries float noise. Identical chemistry with a jittered
+probability is the same result; a molecule present in one run and absent in the
+other is not.
 
 The archived snapshot of the code and data as used for the paper is the Zenodo
 record; this repository is the maintained version and has since been

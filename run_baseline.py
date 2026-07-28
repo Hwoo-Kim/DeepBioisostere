@@ -26,23 +26,28 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--sbdd_gen_csv_dir",
-        help="Directory containing the SBDD generation CSV file.",
+        help=(
+            "Directory holding <model_name>_eval/result.csv for the SBDD "
+            "baselines. This is study-specific input with no sensible default."
+        ),
         type=Path,
-        default=Path("/home/share/DATA/wonho_SBDD_models_eval"),
+        required=True,
     )
     parser.add_argument(
         "--result_dir",
-        help="Directory to save the generated results.",
+        help="Directory to save the generated results (default: ./fig5_baseline).",
         type=Path,
-        default=Path(
-            "/home/mseok/work/DL/DeepBioisostere/Resubmission_DeepBioisostere/exps/fig5_new_case_study/20250531"
-        ),
+        default=Path("fig5_baseline"),
     )
     parser.add_argument(
         "--replacement_lib_path",
-        help="Path to the replacement library CSV file.",
+        help=(
+            "MMPA replacement library CSV. This is the baseline's own lookup "
+            "table, not the model's fragment library, and is not published "
+            "with the package."
+        ),
         type=str,
-        default="/home/share/DATA/swkim/DeepBioisostere/freq_1/mmpa_replacement_library.csv",
+        required=True,
     )
     parser.add_argument(
         "--ranking_mode",

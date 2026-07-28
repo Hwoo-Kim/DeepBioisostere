@@ -4,8 +4,8 @@
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=8
 #SBATCH --time=03:00:00
-#SBATCH -o %x_%j.out
-#SBATCH -e %x_%j.err
+#SBATCH -o /home/mseok/slurm-logs/%x_%j.out
+#SBATCH -e /home/mseok/slurm-logs/%x_%j.err
 
 # Verify that the refactored code plus the assets published to Hugging Face
 # reproduce inference exactly.
@@ -45,11 +45,11 @@ echo "git dirty: $(test -n "$(git status --porcelain)" && echo yes || echo no)"
 echo
 
 echo "===== 1. unit tests (includes pre-refactor property regression) ====="
-uv run pytest tests/ -q
+uv run --no-sync pytest tests/ -q
 
 echo
 echo "===== 2. checkpoint bytes: local vs Hugging Face ====="
-uv run python - <<'PY'
+uv run --no-sync python - <<'PY'
 import hashlib, os, sys
 from pathlib import Path
 from deepbioisostere.assets import AVAILABLE_ABLATION_SETS, AVAILABLE_PROPERTY_SETS, checkpoint_filename
@@ -84,7 +84,7 @@ PY
 
 echo
 echo "===== 3. fragment library: local vs Hugging Face ====="
-uv run python - <<'PY'
+uv run --no-sync python - <<'PY'
 import hashlib, os, sys
 from pathlib import Path
 from huggingface_hub import hf_hub_download
@@ -127,7 +127,7 @@ PY
 
 echo
 echo "===== 4. generation from LOCAL assets (seed 1024) ====="
-uv run deepbioisostere generate \
+uv run --no-sync deepbioisostere generate \
     --smiles "ClC(Cc1c(C(Nc2c(Br)cccc2)=O)cccc1)=O" \
     --smiles "Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1" \
     --target mw=0 --target logp=-1 \
@@ -138,7 +138,7 @@ uv run deepbioisostere generate \
 
 echo
 echo "===== 5. generation again from LOCAL, same seed (determinism) ====="
-uv run deepbioisostere generate \
+uv run --no-sync deepbioisostere generate \
     --smiles "ClC(Cc1c(C(Nc2c(Br)cccc2)=O)cccc1)=O" \
     --smiles "Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1" \
     --target mw=0 --target logp=-1 \
@@ -153,7 +153,7 @@ echo "===== 6. generation from HUGGING FACE assets, same seed ====="
 # env override cleared so nothing falls back to the checkout.
 env -u DEEPBIOISOSTERE_ASSET_DIR \
     DEEPBIOISOSTERE_CACHE_DIR="$WORK/hfcache" \
-    uv run deepbioisostere generate \
+    uv run --no-sync deepbioisostere generate \
     --smiles "ClC(Cc1c(C(Nc2c(Br)cccc2)=O)cccc1)=O" \
     --smiles "Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1" \
     --target mw=0 --target logp=-1 \
@@ -162,7 +162,7 @@ env -u DEEPBIOISOSTERE_ASSET_DIR \
 
 echo
 echo "===== 7. compare the three runs ====="
-uv run python - <<'PY'
+uv run --no-sync python - <<'PY'
 import sys
 import pandas as pd
 

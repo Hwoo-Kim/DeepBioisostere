@@ -17,6 +17,15 @@ frag_features.pkl
 frag_brics_maskings.pkl
 frags_tmp/
 
+# The superseded 145,854-fragment library, kept on disk for reference only.
+# The paper used the 140,096-fragment one, which is what is tracked.
+*.old145854.*
+
+# Trained checkpoints: 201 MB, deliberately purged from this history.
+# They live on Hugging Face (mseok/DeepBioisostere) and Zenodo, and the
+# package downloads them on demand. Do not let them back in.
+model_save/
+
 # Run outputs
 generation_result*.csv
 baseline_strategy_*_results.csv

@@ -4,8 +4,8 @@
 #SBATCH -p a4000
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=4
-#SBATCH -o %x_%j.out
-#SBATCH -e %x_%j.out
+#SBATCH -o /home/mseok/slurm-logs/%x_%j.out
+#SBATCH -e /home/mseok/slurm-logs/%x_%j.err
 #SBATCH --time=144:00:00
 #SBATCH --gres=gpu:1
 

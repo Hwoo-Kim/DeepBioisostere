@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DeepBioisostere: Autonomous Bioisosteric Replacement for Multi-Property Optimization in Drug Design</title>
+
+  <meta name="description" content="DeepBioisostere is a deep generative model that performs end-to-end bioisosteric replacement, autonomously selecting and substituting molecular fragments to satisfy multiple property targets.">
+  <meta name="keywords" content="bioisostere, drug design, molecular optimization, generative model, graph neural network, cheminformatics">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:title" content="DeepBioisostere">
+  <meta property="og:description" content="Autonomous bioisosteric replacement for multi-property optimization in drug design. Nature Communications, 2026.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hwoo-kim.github.io/DeepBioisostere/">
+  <meta property="og:image" content="https://hwoo-kim.github.io/DeepBioisostere/static/images/generated_fragments.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="DeepBioisostere">
+  <meta name="twitter:description" content="Autonomous bioisosteric replacement for multi-property optimization in drug design.">
+
+  <!-- Citation metadata for Google Scholar / Zotero -->
+  <meta name="citation_title" content="Autonomous bioisosteric replacement for multi-property optimization in drug design">
+  <meta name="citation_author" content="Kim, Hyeongwoo">
+  <meta name="citation_author" content="Moon, Seokhyun">
+  <meta name="citation_author" content="Zhung, Wonho">
+  <meta name="citation_author" content="Kim, Shinwoo">
+  <meta name="citation_author" content="Lim, Jaechang">
+  <meta name="citation_author" content="Kim, Woo Youn">
+  <meta name="citation_publication_date" content="2026/07/27">
+  <meta name="citation_journal_title" content="Nature Communications">
+  <meta name="citation_doi" content="10.1038/s41467-026-75512-9">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+</head>
+<body>
+
+<!-- Title / authors / links -->
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">DeepBioisostere</h1>
+          <h2 class="subtitle is-4 publication-subtitle">
+            Autonomous Bioisosteric Replacement for Multi-Property Optimization in Drug Design
+          </h2>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="https://github.com/Hwoo-Kim">Hyeongwoo Kim</a><sup>1,*</sup>,</span>
+            <span class="author-block">
+              <a href="https://github.com/mseok">Seokhyun Moon</a><sup>1,*</sup>,</span>
+            <span class="author-block">Wonho Zhung<sup>1</sup>,</span>
+            <span class="author-block">Shinwoo Kim<sup>1</sup>,</span>
+            <span class="author-block">Jaechang Lim<sup>2</sup>,</span>
+            <span class="author-block">Woo Youn Kim<sup>1,2,&dagger;</sup></span>
+          </div>
+
+          <div class="is-size-6 publication-affiliations">
+            <span class="author-block"><sup>1</sup>KAIST</span>
+            <span class="author-block"><sup>2</sup>HITS Inc.</span>
+          </div>
+          <div class="is-size-7 publication-note">
+            <sup>*</sup>Equal contribution &nbsp;&middot;&nbsp; <sup>&dagger;</sup>Corresponding author
+          </div>
+
+          <div class="is-size-5 publication-venue">
+            <span class="venue-badge">Nature Communications 2026</span>
+          </div>
+
+          <div class="publication-links">
+            <span class="link-block">
+              <a href="https://doi.org/10.1038/s41467-026-75512-9" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fas fa-file-lines"></i></span>
+                <span>Paper</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="https://github.com/Hwoo-Kim/DeepBioisostere" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fab fa-github"></i></span>
+                <span>Code</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="https://doi.org/10.5281/zenodo.20603082" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="ai ai-zenodo"></i></span>
+                <span>Data</span>
+              </a>
+            </span>
+            <span class="link-block">
+              <a href="https://pypi.org/project/deepbioisostere/" class="external-link button is-normal is-rounded is-dark">
+                <span class="icon"><i class="fab fa-python"></i></span>
+                <span>PyPI</span>
+              </a>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Teaser -->
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <img src="./static/images/generated_fragments.png" alt="Fragments generated by DeepBioisostere" class="teaser-image">
+      <h2 class="subtitle has-text-centered">
+        DeepBioisostere proposes replacement fragments that preserve biological activity while
+        moving several molecular properties toward their targets &mdash; including bioisosteres
+        that do not appear in the training data.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<!-- Abstract -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Optimizing molecular properties while preserving biological activity is a central
+            challenge in drug design. Bioisosteric replacement, which substitutes a molecular
+            fragment with a chemically or biologically analogous moiety, offers a powerful
+            strategy for fine-tuning properties without disrupting target binding. However,
+            existing <i>in silico</i> approaches often rely on expert-defined modification sites
+            or struggle to modulate multiple molecular properties simultaneously.
+          </p>
+          <p>
+            Here, we present <b>DeepBioisostere</b>, a deep generative model that performs
+            end-to-end bioisosteric replacement by autonomously selecting and substituting
+            molecular fragments to satisfy multiple target properties. The model captures complex
+            relationships across the molecular graph, enabling the optimization of sophisticated
+            properties such as drug-likeness and synthetic accessibility. By learning from
+            experimental bioassay data, DeepBioisostere proposes replacements that maintain
+            biological activities, even generating potential bioisosteres beyond the training
+            data. We demonstrate the effectiveness of the model in computational hit-to-lead
+            optimization scenarios, highlighting its potential to accelerate rational molecular
+            design without relying on expert heuristics or pre-established substitution rules.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Key ideas -->
+<section class="section is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">What the model does</h2>
+    <div class="columns is-centered">
+      <div class="column">
+        <div class="box feature-box">
+          <h3 class="title is-5"><span class="icon has-text-info"><i class="fas fa-crosshairs"></i></span> Chooses where to edit</h3>
+          <p>No expert-defined modification site is required. The model scores every BRICS-decomposable
+             subgraph of the input molecule and decides which fragment to remove.</p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="box feature-box">
+          <h3 class="title is-5"><span class="icon has-text-info"><i class="fas fa-sliders"></i></span> Optimizes several properties at once</h3>
+          <p>Conditioning is on the <em>change</em> in each property, so multiple objectives
+             &mdash; molecular weight, logP, QED, synthetic accessibility &mdash; can be steered
+             jointly rather than one at a time.</p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="box feature-box">
+          <h3 class="title is-5"><span class="icon has-text-info"><i class="fas fa-lightbulb"></i></span> Goes beyond known rules</h3>
+          <p>Trained on matched molecular pairs from experimental bioassay data, it proposes
+             replacements outside any pre-established substitution table.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Case study -->
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Hit-to-lead case study</h2>
+    <div class="content has-text-justified">
+      <p>
+        Applied to structure-based generative model outputs, DeepBioisostere improves
+        drug-likeness and synthetic accessibility while retaining the predicted binding mode.
+      </p>
+    </div>
+    <div class="columns is-centered">
+      <div class="column">
+        <figure class="image">
+          <img src="./static/images/figure5a_deepicl68_input28_gen59.png" alt="Case study example A">
+        </figure>
+      </div>
+    </div>
+    <div class="columns is-centered">
+      <div class="column">
+        <figure class="image">
+          <img src="./static/images/figure5b_deepicl68_input7_gen64.png" alt="Case study example B">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Get started -->
+<section class="section is-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Get started</h2>
+    <div class="content">
+      <p>Install from PyPI &mdash; no conda environment and no compiled PyG extensions required:</p>
+      <pre><code>pip install deepbioisostere</code></pre>
+      <p>Optimize a molecule for two properties at once:</p>
+      <pre><code>deepbioisostere generate \
+  --smiles "Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1" \
+  --target mw=0 --target logp=-1 \
+  --output results.csv</code></pre>
+      <p>Or from Python:</p>
+      <pre><code>from deepbioisostere import Conditioner, DeepBioisostere, Generator
+
+properties = ["logp", "mw"]
+model = DeepBioisostere.from_pretrained(properties=properties)
+generator = Generator(
+    model=model,
+    conditioner=Conditioner(phase="generation", properties=properties),
+    properties=properties,
+)
+df = generator.generate([("Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1", {"mw": 0, "logp": -1})])</code></pre>
+      <p>Model weights and the fragment library are downloaded and cached on first use.</p>
+    </div>
+  </div>
+</section>
+
+<!-- BibTeX -->
+<section class="section" id="BibTeX">
+  <div class="container is-max-desktop content">
+    <h2 class="title is-3">Citation</h2>
+    <pre><code>@article{kim2026deepbioisostere,
+  title   = {Autonomous bioisosteric replacement for multi-property
+             optimization in drug design},
+  author  = {Kim, Hyeongwoo and Moon, Seokhyun and Zhung, Wonho and
+             Kim, Shinwoo and Lim, Jaechang and Kim, Woo Youn},
+  journal = {Nature Communications},
+  year    = {2026},
+  doi     = {10.1038/s41467-026-75512-9},
+}</code></pre>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content has-text-centered">
+          <p>
+            Released under the <a href="https://github.com/Hwoo-Kim/DeepBioisostere/blob/master/LICENSE">MIT License</a>.
+          </p>
+          <p>
+            This page uses the layout of the
+            <a href="https://github.com/nerfies/nerfies.github.io">Nerfies</a> project page,
+            released under
+            <a href="http://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

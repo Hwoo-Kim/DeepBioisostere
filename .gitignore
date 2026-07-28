@@ -17,8 +17,10 @@ frag_features.pkl
 frag_brics_maskings.pkl
 frags_tmp/
 
-# The superseded 145,854-fragment library, kept on disk for reference only.
-# The paper used the 140,096-fragment one, which is what is tracked.
+# The fragment library, like the checkpoints, is downloaded from Hugging Face
+# on first use (mseok/DeepBioisostere) and cached. Nothing about it is tracked:
+# fragment_library.csv is 12 MB and its derived caches are 0.7-3 GB.
+fragment_library/
 *.old145854.*
 
 # Trained checkpoints: 201 MB, deliberately purged from this history.

@@ -47,17 +47,6 @@ dependencies = [
     "typer>=0.12",
 ]
 
-[project.optional-dependencies]
-# Extras for reproducing the figures in exps/, not needed to run the model.
-notebook = [
-    "cairosvg>=2.7",
-    "ipykernel>=6.29",
-    "ipywidgets>=8.1",
-    "matplotlib>=3.8",
-    "notebook>=7.2",
-    "seaborn>=0.13",
-]
-
 [project.urls]
 Homepage = "https://mseok.github.io/DeepBioisostere/"
 Repository = "https://github.com/Hwoo-Kim/DeepBioisostere"
@@ -96,8 +85,8 @@ torch = [{ index = "pytorch-cu124", marker = "sys_platform == 'linux'" }]
 packages = ["src/deepbioisostere"]
 
 [tool.hatch.build.targets.sdist]
-# Ship the source and the license, not the 200 MB of checkpoints or the
-# figure-reproduction artifacts under exps/.
+# Ship the source and the license. Checkpoints and the fragment library are
+# downloaded from Hugging Face on first use, never bundled.
 include = [
     "src/deepbioisostere",
     "README.md",

@@ -228,67 +228,56 @@ molecular pair analysis scripts are under `data/`. See
 
 ## Reproducing the paper
 
-`exps/` holds the analysis notebooks, source data and provenance for each
-figure. **Start with [`exps/README.md`](exps/README.md)**, which indexes every
-input and output file; each figure directory has its own README as well.
+The analysis notebooks, per-figure source data, figure outputs and docking
+provenance are archived on Zenodo, not in this repository:
 
-| Directory | Figure |
-|---|---|
-| `exps/fig2_multi_conditioning/` | Multi-property conditioning |
-| `exps/fig3_chemical_environment/` | Chemical environment awareness |
-| `exps/fig4_novel_bioisosterism/` | Novel bioisosterism |
-| `exps/fig5_sbdd_model_tests/`, `exps/fig5_new_case_study/` | Hit-to-lead case study |
+**[10.5281/zenodo.20603082](https://doi.org/10.5281/zenodo.20603082)**
 
-Install the notebook extras first: `uv sync --extra notebook`.
+That record contains `DeepBioisostere-experiments.tar.gz` (one directory per
+figure, each with its own README), the ten checkpoints, and a SHA-256 manifest.
+This repository is the maintained code; the Zenodo record is the archived data.
 
-### Figure 2, without the notebook
-
-```bash
-export CUBLAS_WORKSPACE_CONFIG=:4096:8
-python tools/reproduce_fig2.py --device cuda:0 --num-workers 2
-```
-
-Seed 2025, `num_sample_each_mol=10`, `new_frag_type="test"`, the three
-two-property checkpoints; diffed against
-`exps/fig2_multi_conditioning/csv_files/generation_result_seed2025.csv`.
-
-Three things decide whether it matches, and all three are easy to get wrong:
+Three things decide whether a regenerated result matches the published one, and
+all three are easy to get wrong:
 
 **Determinism.** On CUDA, `scatter_add_` reduces with atomics, so summation
 order varies between runs. The perturbation is ~2e-6 — chemically meaningless —
 but it changes multinomial draws and therefore *which* molecules are sampled.
-Without `CUBLAS_WORKSPACE_CONFIG` plus `torch.use_deterministic_algorithms(True)`
-(which `reproduce_fig2.py` sets for you), two runs at the same seed agree on
-~98% of molecules rather than 100%. Measure it yourself:
+Without both of the following, two runs at the same seed agree on ~98% of
+molecules rather than 100%:
 
 ```bash
-python tools/determinism_probe.py --device cuda:0
+export CUBLAS_WORKSPACE_CONFIG=:4096:8   # must precede CUDA init
+```
+```python
+torch.use_deterministic_algorithms(True)
+torch.backends.cuda.matmul.allow_tf32 = False
+torch.backends.cudnn.allow_tf32 = False
 ```
 
-Determinism costs roughly 50% wall clock. CPU generation is deterministic
-regardless. Pass `--allow-nondeterminism` to opt out.
+This costs roughly 50% wall clock. CPU generation is deterministic regardless.
 
 **The fragment library.** Generation picks an insertion fragment *by index* into
 the library, so a different library silently yields different molecules. The
-published runs used the **140,096**-fragment library, which is what the package
-resolves and what is on the Hub. A superseded 145,854-fragment copy exists and
-is not what the paper used.
+published runs used the **140,096**-fragment library, which is what this package
+resolves from the Hub. A superseded 145,854-fragment copy exists and is not what
+the paper used.
 
-**`--num-workers` is a memory setting, not a speed one.** The generator holds the
+**Worker count is a memory setting, not a speed one.** The generator holds the
 parsed library (~7 GB) before forking, and CPython's refcounter touches every
 object header, so each worker materialises its own copy rather than sharing it.
-At 8 workers this reached 51 GB RSS and exhausted `/dev/shm`. Use 2. Results are
-checkpointed per case, so a late failure does not discard earlier cases.
+At 8 workers this reaches 51 GB RSS and can exhaust `/dev/shm`. Use 2.
 
 **What counts as reproduced.** The criterion is the set of generated molecules —
 `(input, generated, leaving fragment, inserting fragment)` — not bit-equality of
-`PREDICTED-PROB`, which carries float noise. Identical chemistry with a jittered
-probability is the same result; a molecule present in one run and absent in the
-other is not.
+`PREDICTED-PROB`, which carries float noise. Compare *canonicalised* SMILES on
+both sides: rdkit 2022 and 2026 emit different canonical strings for identical
+molecules, and comparing raw strings understates agreement substantially.
 
-The archived snapshot of the code and data as used for the paper is the Zenodo
-record; this repository is the maintained version and has since been
-restructured.
+Under the paper's original dependency versions this code reproduces 99.75% of
+the published Figure 2 molecules; under current ones, 99.32%. The residual are
+molecules swapped at near-tied probabilities, which the atomics nondeterminism
+above is sufficient to explain.
 
 ## Citation
 

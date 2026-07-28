@@ -293,7 +293,7 @@ class FragLibProcessor:
         # original_smiles pins the stored SMILES to the exact string in
         # fragment_library.csv instead of re-canonicalising it. RDKit's
         # canonical ranking for stereocentres changed after the library was
-        # built (2022.03): 1712 of the 145854 insertion fragments round-trip to
+        # built (2022.03): 1629 of the 140,096 insertion fragments round-trip to
         # a different string under 2026.03, e.g.
         #   [5*]N1C[C@H](C)O[C@H](C)C1  ->  [5*]N1C[C@@H](C)O[C@@H](C)C1
         # Keying the feature dict on the re-canonicalised form makes those

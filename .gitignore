@@ -20,13 +20,19 @@ frags_tmp/
 # The fragment library, like the checkpoints, is downloaded from Hugging Face
 # on first use (mseok/DeepBioisostere) and cached. Nothing about it is tracked:
 # fragment_library.csv is 12 MB and its derived caches are 0.7-3 GB.
-fragment_library/
+#
+# Leading slash matters. Unanchored, `fragment_library/` also matches
+# src/deepbioisostere/fragment_library/, which is a *package* directory and is
+# tracked. Already-tracked files there keep working, so this hides: it only
+# surfaces when someone tries to `git add` a new module and git silently
+# refuses.
+/fragment_library/
 *.old145854.*
 
 # Trained checkpoints: 201 MB, deliberately purged from this history.
 # They live on Hugging Face (mseok/DeepBioisostere) and Zenodo, and the
 # package downloads them on demand. Do not let them back in.
-model_save/
+/model_save/
 
 # Run outputs
 generation_result*.csv

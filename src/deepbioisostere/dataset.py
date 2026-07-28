@@ -814,9 +814,11 @@ class FragmentLibrary(Dataset):
                 missing = f"{missing} and " if missing else ""
                 missing += cls.FRAG_BRICS_MASKINGS
             print(f"Fragment library tensor cache not found ({missing}).")
-            print("Building it from the fragment library csv. This parses ~146k")
-            print("fragments and takes on the order of an hour; it happens once,")
-            print("and the result is cached next to the csv.")
+            print("Building it from the fragment library csv. This parses all")
+            print("140,096 insertion fragments and takes on the order of an")
+            print("hour; it happens once, and the result is cached next to the")
+            print("csv. Downloading frag_features.pkl instead is much faster:")
+            print("  deepbioisostere download --all")
 
             from .fragment_library.parse_fragments import FragLibProcessor
 

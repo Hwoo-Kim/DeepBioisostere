@@ -136,8 +136,8 @@ one reports that explicitly rather than failing to download.
 
 Generation needs `frag_features.pkl`, a pre-parsed tensor cache derived from
 `fragment_library.csv`. It is published (708 MB) so that a first run is a
-download. If it is ever absent it is rebuilt automatically, but that parses
-~146k fragments and takes **on the order of an hour**, so prefer the download.
+download. If it is ever absent it is rebuilt automatically, but that parses all
+140,096 fragments and takes **on the order of an hour**, so prefer the download.
 
 Training additionally needs `frag_brics_maskings.pkl`. That one is ~3 GB and is
 *not* published; it is rebuilt locally on first training run. To build either
@@ -146,6 +146,12 @@ ahead of time — inside a batch job rather than an interactive session:
 ```bash
 deepbioisostere fragment-library prepare --num-cores 8
 ```
+
+**Budget ~7 GB of RAM per worker.** The parsed library is held in the parent
+process before the DataLoader forks, and CPython's refcounter touches every
+object header, so copy-on-write does not help: each worker ends up with its own
+copy. `--num-cores` is therefore a memory setting more than a speed one. 2 is a
+good default; 8 has been measured at 51 GB RSS and can exhaust `/dev/shm`.
 
 ## Command line interface
 
@@ -196,6 +202,32 @@ df = generator.generate_with_leaving_frag(
 
 `example.py` and `example.ipynb` are runnable versions of the above.
 
+### Baselines
+
+`BaselineGenerator` implements the three ablated selection strategies the paper
+compares against — random leaving fragment with frequency-based insertion,
+model-chosen leaving fragment with frequency-based insertion, and random for
+both:
+
+```python
+from deepbioisostere.baseline_generator import BaselineGenerator
+
+baseline = BaselineGenerator(
+    model=model,
+    conditioner=Conditioner(phase="generation", properties=properties),
+    properties=properties,
+    num_sample_each_mol=100,
+    device="cpu",
+    num_cores=2,
+    batch_size=512,
+    new_frag_type="all",
+)
+df = baseline.generate_strategy_1([(smi, {"mw": 0, "logp": -1})])
+```
+
+Inputs are `(smiles, targets)` tuples, the same shape `Generator.generate`
+takes. `baseline_example.py` runs all three strategies and prints a comparison.
+
 > **Migrating from the pre-release layout.** The package used to be imported as
 > `from scripts.model import DeepBioisostere`. It is now
 > `from deepbioisostere import DeepBioisostere`. The old form was not actually
@@ -237,15 +269,18 @@ pairs into the fragment library the model selects from. Scripts are under
 filtering rationale in
 [`data/fragment_library/README.md`](data/fragment_library/README.md).
 
+Paths below are relative to `data/`. Note that step 8 sits one level up from
+steps 2–7.
+
 | Step | Script | What it does |
 |---|---|---|
 | 1 | *(manual)* | Download ChEMBL activities (`pChEMBL`, SMILES, ChEMBL ID) |
-| 2 | `chembl/parse_csv.py` | Parse the raw export |
-| 3 | `chembl/filter_chembl.py` | Apply the activity and property filters |
-| 4 | `make_frag_db.py` | Enumerate the fragment database |
-| 5 | `filter_pair.py` | Cap variable-part size |
-| 6 | `parse_db.py` | Turn the database into matched pairs |
-| 7 | `process_pair.py`, `analyze_pair.py` | Assemble and summarise the pair data |
+| 2 | `fragment_library/chembl/parse_csv.py` | Parse the raw export |
+| 3 | `fragment_library/chembl/filter_chembl.py` | Apply the activity and property filters |
+| 4 | `fragment_library/make_frag_db.py` | Enumerate the fragment database |
+| 5 | `fragment_library/filter_pair.py` | Cap variable-part size |
+| 6 | `fragment_library/parse_db.py` | Turn the database into matched pairs |
+| 7 | `fragment_library/process_pair.py`, `fragment_library/analyze_pair.py` | Assemble and summarise the pair data |
 | 8 | `divide.py` / `divide.sh` | Split into train / validation / test |
 
 The published library was built with these filters:
@@ -276,26 +311,51 @@ figure. The code comes from PyPI, everything else from the record.
 
 ```bash
 pip install deepbioisostere
-# download DeepBioisostere-experiments.tar.gz and reproduce_fig2.py from the record
+# download DeepBioisostere-experiments.tar.gz and the reproduce_*.py scripts
 tar -xzf DeepBioisostere-experiments.tar.gz          # creates ./exps/
-export CUBLAS_WORKSPACE_CONFIG=:4096:8
+
+python reproduce_fig4.py   --device cpu               # minutes
+python reproduce_fig3.py   --target-prop logp --device cuda:0 --num-workers 2
+python reproduce_fig3.py   --target-prop qed  --device cuda:0 --num-workers 2
+python reproduce_tables.py                            # Table 1 + the t-tests
+
+export CUBLAS_WORKSPACE_CONFIG=:4096:8                # Figure 2 only
 python reproduce_fig2.py --device cuda:0 --num-workers 2
 ```
 
 Checkpoints and the fragment library are fetched from Hugging Face on first use,
-so extracting the archive is the only manual step. The record also carries
-`determinism_probe.py`, which measures the nondeterminism described below on
-your own GPU, and `legacy_repro_shim.py` for running under the paper's original
-torch/rdkit versions. Its `README.md` documents every file.
+so extracting the archive is the only manual step. The record's `README.md`
+documents every file, and each `exps/fig*/` directory has its own README with
+that experiment's exact settings.
 
-Three things decide whether a regenerated result matches the published one, and
-all three are easy to get wrong:
+### How much reproduces
 
-**Determinism.** On CUDA, `scatter_add_` reduces with atomics, so summation
-order varies between runs. The perturbation is ~2e-6 — chemically meaningless —
-but it changes multinomial draws and therefore *which* molecules are sampled.
-Without both of the following, two runs at the same seed agree on ~98% of
-molecules rather than 100%:
+| Target | Result |
+|---|---|
+| Figure 4 | 100/100 molecules **and their rank order** |
+| Figure 3, both panels | 300/300 molecules each |
+| Table 1 | 20/24 numbers identical at 3 decimals |
+| SI Fig. 4 / Table 3 | 74/84 numbers identical to 1e-9 |
+| Figure 2 | **99.32%** of 50,487 molecules; **99.75%** under the paper's original pins |
+
+Figure 2 is the one experiment exposed to GPU nondeterminism, and the only one
+that does not come back exactly. The residual is *swaps, not losses*: nearly
+every missing row is paired with an extra row from the same input molecule at a
+near-tied probability, and the missing molecules sit in the low-probability tail.
+
+Everything that moves is a case3 SA value, and it moves because `rdkit`'s
+`sascorer` changed, not because the model did: scoring the same 45,692 published
+molecules under rdkit 2022 and rdkit 2026 gives **zero** disagreement on logP,
+Mw and QED, and 24 disagreements on SA. Table 1's SA row shifts by 0.001 and no
+significance verdict in Table 3 changes.
+
+### Four things decide whether a rerun matches
+
+**Determinism — for Figure 2 only.** On CUDA, `scatter_add_` reduces with
+atomics, so summation order varies between runs. The perturbation is ~2e-6 —
+chemically meaningless — but it changes multinomial draws and therefore *which*
+molecules are sampled. Without both of the following, two Figure 2 runs at the
+same seed agree on ~98% of molecules rather than 100%:
 
 ```bash
 export CUBLAS_WORKSPACE_CONFIG=:4096:8   # must precede CUDA init
@@ -306,13 +366,25 @@ torch.backends.cuda.matmul.allow_tf32 = False
 torch.backends.cudnn.allow_tf32 = False
 ```
 
-This costs roughly 50% wall clock. CPU generation is deterministic regardless.
+This costs roughly 50% wall clock. Figures 3 and 4 are exempt: they call
+`generate_with_leaving_frag`, which pins the leaving fragment, so the
+multinomial draws from a one-element distribution and the insertion choice is a
+deterministic top-k. They need neither a seed nor these flags.
+
+CPU generation is deterministic **at a fixed thread count**: two runs on one
+machine are bitwise identical, but changing `OMP_NUM_THREADS` between them
+reorders torch's reductions and moves `PREDICTED-PROB` by ~5e-11. That is far
+too small to change which molecules are produced, but it does mean a
+byte-for-byte `diff` of two csvs only means something when the thread count
+matched.
 
 **The fragment library.** Generation picks an insertion fragment *by index* into
 the library, so a different library silently yields different molecules. The
 published runs used the **140,096**-fragment library, which is what this package
 resolves from the Hub. A superseded 145,854-fragment copy exists and is not what
-the paper used.
+the paper used. The `new_frag_type` split matters just as much, and the
+published runs did not all use the same one — Figure 3's two panels differ from
+each other. The reproduction scripts default to the right one per figure.
 
 **Worker count is a memory setting, not a speed one.** The generator holds the
 parsed library (~7 GB) before forking, and CPython's refcounter touches every
@@ -323,12 +395,8 @@ At 8 workers this reaches 51 GB RSS and can exhaust `/dev/shm`. Use 2.
 `(input, generated, leaving fragment, inserting fragment)` — not bit-equality of
 `PREDICTED-PROB`, which carries float noise. Compare *canonicalised* SMILES on
 both sides: rdkit 2022 and 2026 emit different canonical strings for identical
-molecules, and comparing raw strings understates agreement substantially.
-
-Under the paper's original dependency versions this code reproduces 99.75% of
-the published Figure 2 molecules; under current ones, 99.32%. The residual are
-molecules swapped at near-tied probabilities, which the atomics nondeterminism
-above is sufficient to explain.
+molecules, and comparing raw strings understates agreement substantially — on
+Figure 2 it reports 95.5% where the real figure is 99.3%.
 
 ## Citation
 

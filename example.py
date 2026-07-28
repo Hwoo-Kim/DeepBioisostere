@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     # USER SETTINGS
     device = "cpu"
-    num_cores = 4
+    num_cores = 2  # a memory setting: the parsed library is ~7 GB per worker
     batch_size = 512
     num_sample_each_mol = 100
     new_frag_type = "all"  # one of ["test", "train", "val", "all"]

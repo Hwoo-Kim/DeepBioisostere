@@ -213,29 +213,80 @@ deepbioisostere train \
 ```
 
 Defaults reproduce the configuration used for the published models, so in
-practice only those three options are needed. `jobscripts/submit_train.sh` is a
-Slurm example. Outputs (checkpoint, logs, loss history) land in
-`<project-dir>/model_save/<save-name>/`.
+practice only those three options are needed. Outputs (checkpoint, logs, loss
+history) land in `<project-dir>/model_save/<save-name>/`.
+
+Training additionally builds `frag_brics_maskings.pkl` (~3 GB) on first run.
+Build it ahead of time with `deepbioisostere fragment-library prepare`, and note
+that `--num-cores` there is a memory decision as much as a speed one: the
+parsed library is held before forking, so each worker costs several GB.
 
 Training data is available from Zenodo:
 [10.5281/zenodo.20603082](https://doi.org/10.5281/zenodo.20603082).
 
 ## Building the training data (MMPA)
 
-To regenerate the dataset from scratch rather than downloading it, the matched
-molecular pair analysis scripts are under `data/`. See
-`data/fragment_library/SCRIPTS.md`.
+The trained models and the fragment library are downloaded automatically, so
+this is only needed to rebuild the dataset from scratch — for a different
+source database, different filters, or a different fragment-size cutoff.
+
+The pipeline turns ChEMBL activity data into matched molecular pairs, and those
+pairs into the fragment library the model selects from. Scripts are under
+`data/`; the exact commands are in
+[`data/fragment_library/SCRIPTS.md`](data/fragment_library/SCRIPTS.md) and the
+filtering rationale in
+[`data/fragment_library/README.md`](data/fragment_library/README.md).
+
+| Step | Script | What it does |
+|---|---|---|
+| 1 | *(manual)* | Download ChEMBL activities (`pChEMBL`, SMILES, ChEMBL ID) |
+| 2 | `chembl/parse_csv.py` | Parse the raw export |
+| 3 | `chembl/filter_chembl.py` | Apply the activity and property filters |
+| 4 | `make_frag_db.py` | Enumerate the fragment database |
+| 5 | `filter_pair.py` | Cap variable-part size |
+| 6 | `parse_db.py` | Turn the database into matched pairs |
+| 7 | `process_pair.py`, `analyze_pair.py` | Assemble and summarise the pair data |
+| 8 | `divide.py` / `divide.sh` | Split into train / validation / test |
+
+The published library was built with these filters:
+
+- activity `0 ≤ pChEMBL ≤ 10,000 nM`, molecular weight ≤ 800 Da, salts removed
+- variable parts capped at **12 heavy atoms**, chosen to admit bicyclic rings
+- for `A-B-C` vs `A-D-C`, pairs are dropped when `B` or `D` outweighs `A+C`
+
+The result is **140,096** insertion fragments, split 112,076 train / 14,013
+validation / 14,007 test. Generation selects fragments *by index* into this
+library, so a library rebuilt with different settings will not reproduce the
+paper's outputs even with identical weights.
+
+Two caveats before running any of this: the scripts were written for a cluster
+with a job scheduler and expect a `jobscripts/` submission pattern described in
+`SCRIPTS.md`, and step 4 over the full ChEMBL set is measured in CPU-days.
 
 ## Reproducing the paper
 
-The analysis notebooks, per-figure source data, figure outputs and docking
-provenance are archived on Zenodo, not in this repository:
+The analysis notebooks, per-figure source data, figure outputs, docking
+provenance **and the reproduction scripts** are archived on Zenodo, not in this
+repository:
 
 **[10.5281/zenodo.20603082](https://doi.org/10.5281/zenodo.20603082)**
 
-That record contains `DeepBioisostere-experiments.tar.gz` (one directory per
-figure, each with its own README), the ten checkpoints, and a SHA-256 manifest.
-This repository is the maintained code; the Zenodo record is the archived data.
+That record is self-contained: you do not need this repository to reproduce a
+figure. The code comes from PyPI, everything else from the record.
+
+```bash
+pip install deepbioisostere
+# download DeepBioisostere-experiments.tar.gz and reproduce_fig2.py from the record
+tar -xzf DeepBioisostere-experiments.tar.gz          # creates ./exps/
+export CUBLAS_WORKSPACE_CONFIG=:4096:8
+python reproduce_fig2.py --device cuda:0 --num-workers 2
+```
+
+Checkpoints and the fragment library are fetched from Hugging Face on first use,
+so extracting the archive is the only manual step. The record also carries
+`determinism_probe.py`, which measures the nondeterminism described below on
+your own GPU, and `legacy_repro_shim.py` for running under the paper's original
+torch/rdkit versions. Its `README.md` documents every file.
 
 Three things decide whether a regenerated result matches the published one, and
 all three are easy to get wrong:

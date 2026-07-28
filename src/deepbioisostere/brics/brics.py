@@ -196,28 +196,6 @@ class BRICSModule:
         # return ",".join(brics_types)
 
     @classmethod
-    def get_subgraph_idx_to_brics_type(
-        cls,
-        original_mol,
-        BRICS_bonds,
-        atom_frag_indice,
-        allowed_subgraph,
-        allowed_subgraph_idx,
-    ):
-        change_indice = [int(num) for num in change_indice]
-        other_frags, _, _ = cls.get_adjacent_fragments(original_mol, change_indice)
-        if other_frags is None:
-            return None
-        brics_types = []
-        for frag in other_frags:
-            for atom in frag.GetAtoms():
-                if atom.GetSymbol() == "*":
-                    brics_types.append(str(atom.GetIsotope()))
-        brics_types.sort()
-
-        return ",".join(brics_types)
-
-    @classmethod
     def compose_mols_with_attachment(
         cls,
         original_smi: SMILES,

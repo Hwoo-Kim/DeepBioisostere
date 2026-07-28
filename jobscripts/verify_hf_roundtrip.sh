@@ -99,8 +99,13 @@ def sha(p):
             h.update(b)
     return h.hexdigest()
 
+# frag_brics_maskings.pkl (~3 GB) is read only during training and is
+# deliberately not published, so its absence from the Hub is expected.
+REQUIRED = ("fragment_library.csv", "frag_features.pkl")
+OPTIONAL = ("frag_brics_maskings.pkl",)
+
 bad = 0
-for name in ("fragment_library.csv", "frag_features.pkl", "frag_brics_maskings.pkl"):
+for name in REQUIRED + OPTIONAL:
     lp = Path("fragment_library") / name
     if not lp.is_file():
         print(f"  {name:40s} not present locally, skipped")
@@ -108,8 +113,11 @@ for name in ("fragment_library.csv", "frag_features.pkl", "frag_brics_maskings.p
     try:
         hp = hf_hub_download(repo_id=repo, filename=name, local_dir=str(cache))
     except Exception as e:
-        print(f"  {name:40s} NOT ON HUB ({type(e).__name__})")
-        bad += 1
+        if name in OPTIONAL:
+            print(f"  {name:40s} not on Hub (expected, training only)")
+        else:
+            print(f"  {name:40s} MISSING FROM HUB ({type(e).__name__})")
+            bad += 1
         continue
     ok = sha(lp) == sha(hp)
     bad += not ok
@@ -185,8 +193,7 @@ if not (det and same):
 
 from rdkit import Chem, RDLogger
 RDLogger.DisableLog("rdApp.*")
-col = next(c for c in loc.columns if "NEW" in c.upper() and "SMI" in c.upper())
-smis = loc[col].dropna().tolist()
+smis = loc["GEN-MOL-SMI"].dropna().tolist()
 valid = sum(Chem.MolFromSmiles(s) is not None for s in smis)
 print(f"\n  generated molecules: {valid}/{len(smis)} parse under RDKit")
 sys.exit(0 if valid == len(smis) else 1)

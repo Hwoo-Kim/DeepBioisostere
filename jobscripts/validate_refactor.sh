@@ -75,10 +75,9 @@ print("rows:", len(df))
 print("columns:", list(df.columns))
 assert len(df) > 0, "no molecules generated"
 
-col = next(c for c in df.columns if "NEW" in c.upper() and "SMI" in c.upper())
-smis = df[col].dropna().tolist()
+smis = df["GEN-MOL-SMI"].dropna().tolist()
 valid = [s for s in smis if Chem.MolFromSmiles(s) is not None]
-print(f"{col}: {len(valid)}/{len(smis)} parse under RDKit")
+print(f"GEN-MOL-SMI: {len(valid)}/{len(smis)} parse under RDKit")
 assert len(valid) == len(smis), "some generated SMILES do not parse"
 print("\nOK: end-to-end generation produced only valid molecules")
 PY

@@ -249,8 +249,9 @@ class TrainDataset(Dataset):
                 i
             ]  # j: dummy atom, i: adjacent atom to j
 
-        atom_indice, frag_indice = list(atom_frag_indice.keys()), list(
-            atom_frag_indice.values()
+        atom_indice, frag_indice = (
+            list(atom_frag_indice.keys()),
+            list(atom_frag_indice.values()),
         )
         atom_indice, frag_indice = np.array(atom_indice), np.array(frag_indice)
         atom_frag_indice_w_dummy = frag_indice[atom_indice.argsort()].tolist()
@@ -308,9 +309,7 @@ class TrainCollator:
             if int(frag_brics_type.sum(0)) == 1:
                 continue
             parsed_data.append(data)
-            pos_frags_data.append(
-                self.frag_features[data.y_fragID]
-            )
+            pos_frags_data.append(self.frag_features[data.y_fragID])
             pos_frags_IDs.append(data.y_fragID)
             frags_mask.append(frag_brics_type)
 
@@ -484,7 +483,10 @@ class InferenceDataset(Dataset):
         matches_with_dummy = matcher_with_dummy.GetMatches(mol)  # tuple of tuples
 
         for match_with_dummy in matches_with_dummy:
-            if atom_idx in match_with_dummy and match_with_dummy.index(atom_idx) not in dummy_atom_idxs:
+            if (
+                atom_idx in match_with_dummy
+                and match_with_dummy.index(atom_idx) not in dummy_atom_idxs
+            ):
                 break
         else:
             print("Specified atom is not a member of the given fragment.")
@@ -564,7 +566,9 @@ class InferenceDataset(Dataset):
         mol = Chem.MolFromSmiles(smi)
         if mol is None:
             return None
-        data, broken_mol = from_mol(mol, type="Mol", return_broken_mol=True, original_smiles=smi)
+        data, broken_mol = from_mol(
+            mol, type="Mol", return_broken_mol=True, original_smiles=smi
+        )
 
         # if mol.GetNumAtoms() == broken_mol.GetNumAtoms():  # no BRICS bond
         if data is None:  # no BRICS bond
@@ -728,7 +732,7 @@ class FragmentLibrary(Dataset):
         frag_lib: pd.DataFrame,
         smi_to_frag_features: Dict[SMILES, PairData],
         frag_brics_maskings: Dict[Tuple[int], List[torch.BoolTensor]] = None,
-        num_cores: int = None,          # used only when parsing fragment library
+        num_cores: int = None,  # used only when parsing fragment library
     ):
         super().__init__()
 
@@ -740,17 +744,25 @@ class FragmentLibrary(Dataset):
 
         # FragmentLibrary for new fragments
         self.frag_features = [smi_to_frag_features[smi] for smi in self.frags_smis]
-        self.frag_brics_maskings = frag_brics_maskings      # only for training
+        self.frag_brics_maskings = frag_brics_maskings  # only for training
 
     @classmethod
-    def get_insertion_frag_library(cls, data_dir: Union[str, Path], new_frag_type="all", with_maskings=False, num_cores=None):
+    def get_insertion_frag_library(
+        cls,
+        data_dir: Union[str, Path],
+        new_frag_type="all",
+        with_maskings=False,
+        num_cores=None,
+    ):
         assert new_frag_type == "all" or new_frag_type in ["train", "val", "test"]
 
         # Columns: INDEX FRAG-SMI FRAG-FREQ NEW-OLD DATA-TYPE BRICS-TYPE
         if isinstance(data_dir, str):
             data_dir = Path(data_dir)
         fragment_library_df = pd.read_csv(
-            os.path.join(data_dir, cls.FRAGMENT_LIBRARY_CSV), sep="\t", dtype={"DATA-TYPE": str, "BRICS-TYPE": str}
+            os.path.join(data_dir, cls.FRAGMENT_LIBRARY_CSV),
+            sep="\t",
+            dtype={"DATA-TYPE": str, "BRICS-TYPE": str},
         )
         fragment_library_df = fragment_library_df[
             fragment_library_df["NEW-OLD"] == "new"
@@ -760,10 +772,21 @@ class FragmentLibrary(Dataset):
         frag_feature_path = os.path.join(data_dir, cls.FRAG_FEATURES)
         frag_brics_masking_path = os.path.join(data_dir, cls.FRAG_BRICS_MASKINGS)
 
-        if not os.path.exists(frag_feature_path):
-            print("Tensor files for the fragment library were not found.")
-            print("Parsing them from the fragment library csv. This takes a few minutes,")
-            print("and only happens once -- the result is cached next to the csv.")
+        # Both caches are produced by the same pass, but they are not always
+        # both present: frag_features.pkl is published for inference while the
+        # 3 GB frag_brics_maskings.pkl, which only training reads, is not. So
+        # the trigger has to consider whichever files are actually needed.
+        need_features = not os.path.exists(frag_feature_path)
+        need_maskings = with_maskings and not os.path.exists(frag_brics_masking_path)
+        if need_features or need_maskings:
+            missing = cls.FRAG_FEATURES if need_features else ""
+            if need_maskings:
+                missing = f"{missing} and " if missing else ""
+                missing += cls.FRAG_BRICS_MASKINGS
+            print(f"Fragment library tensor cache not found ({missing}).")
+            print("Building it from the fragment library csv. This parses ~146k")
+            print("fragments and takes on the order of an hour; it happens once,")
+            print("and the result is cached next to the csv.")
 
             from .fragment_library.parse_fragments import FragLibProcessor
 

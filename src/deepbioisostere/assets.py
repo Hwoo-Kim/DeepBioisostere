@@ -34,9 +34,8 @@ __all__ = [
     "resolve_fragment_library",
 ]
 
-# Replace with the real namespace once the Hub repository is created, or set
-# $DEEPBIOISOSTERE_HF_REPO at runtime.
-DEFAULT_HF_REPO_ID = "REPLACE_ME/DeepBioisostere"
+# Overridable at runtime with $DEEPBIOISOSTERE_HF_REPO.
+DEFAULT_HF_REPO_ID = "mseok/DeepBioisostere"
 
 FRAGMENT_LIBRARY_CSV = "fragment_library.csv"
 # Derived tensor caches. Absent from the Hub repo they are regenerated locally
@@ -133,15 +132,6 @@ def _check_availability(normalized: tuple[str, ...], ablation: bool) -> None:
 
 def _download(filename: str, local_dir: Path) -> Path:
     repo_id = hf_repo_id()
-    if repo_id.startswith("REPLACE_ME/"):
-        raise AssetError(
-            f"Cannot download {filename!r}: the Hugging Face repository for "
-            "DeepBioisostere assets has not been configured.\n"
-            "Either set $DEEPBIOISOSTERE_HF_REPO to the Hub repo id, or point "
-            "$DEEPBIOISOSTERE_ASSET_DIR at a directory that already contains "
-            "the assets (for example the model_save/ directory of a source "
-            "checkout)."
-        )
     try:
         from huggingface_hub import hf_hub_download
     except ImportError as exc:  # pragma: no cover - dependency is declared
@@ -160,7 +150,12 @@ def _download(filename: str, local_dir: Path) -> Path:
         )
     except Exception as exc:
         raise AssetError(
-            f"Failed to download {filename!r} from Hugging Face repo {repo_id!r}: {exc}"
+            f"Failed to download {filename!r} from Hugging Face repo "
+            f"{repo_id!r}: {exc}\n"
+            "If you are offline or behind a firewall, point "
+            "$DEEPBIOISOSTERE_ASSET_DIR at a directory that already holds the "
+            "assets (for example the model_save/ directory of a source "
+            "checkout), or set $DEEPBIOISOSTERE_HF_REPO to a mirror."
         ) from exc
     return Path(path)
 

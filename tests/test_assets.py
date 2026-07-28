@@ -130,15 +130,19 @@ class TestResolution:
         monkeypatch.setenv("DEEPBIOISOSTERE_ASSET_DIR", str(tmp_path))
         assert resolve_fragment_library() == lib
 
-    def test_unconfigured_repo_gives_actionable_error(self, tmp_path, monkeypatch):
+    def test_download_failure_gives_actionable_error(self, tmp_path, monkeypatch):
+        """A failed fetch must explain the offline escape hatches."""
         monkeypatch.delenv("DEEPBIOISOSTERE_ASSET_DIR", raising=False)
-        monkeypatch.delenv("DEEPBIOISOSTERE_HF_REPO", raising=False)
         monkeypatch.setenv("DEEPBIOISOSTERE_CACHE_DIR", str(tmp_path))
+        # Point at a repo that cannot exist, so no network round trip succeeds.
+        monkeypatch.setenv(
+            "DEEPBIOISOSTERE_HF_REPO", "deepbioisostere-tests/does-not-exist"
+        )
+        monkeypatch.setenv("HF_HUB_OFFLINE", "1")
         with pytest.raises(AssetError) as exc:
             resolve_checkpoint(["mw"])
         message = str(exc.value)
-        assert "has not been configured" in message
-        assert "DEEPBIOISOSTERE_HF_REPO" in message
+        assert "Failed to download" in message
         assert "DEEPBIOISOSTERE_ASSET_DIR" in message
 
 

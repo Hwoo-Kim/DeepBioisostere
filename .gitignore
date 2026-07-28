@@ -30,3 +30,6 @@ deepbio_validate_*.err
 
 # Local AI working notes: kept on disk, never committed
 _ai/
+
+# verification scratch
+.verify/

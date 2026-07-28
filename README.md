@@ -67,15 +67,19 @@ fragment library are downloaded and cached.
 
 ## Model weights and fragment library
 
-Checkpoints (10 files, ~20 MB each) and the fragment library (~13 MB) are not
-shipped in the wheel. They are resolved on first use, in this order:
+Assets live on the Hugging Face Hub at
+[**mseok/DeepBioisostere**](https://huggingface.co/mseok/DeepBioisostere) and
+are fetched on first use. They are resolved in this order:
 
 1. an explicit path you pass (`--model-dir`, `--frag-lib-dir`, or `local_dir=`),
 2. `$DEEPBIOISOSTERE_ASSET_DIR`,
-3. the Hugging Face Hub, cached under `$XDG_CACHE_HOME/deepbioisostere`.
+3. the Hub, cached under `$XDG_CACHE_HOME/deepbioisostere`.
 
-So a source checkout that already has `model_save/` and `fragment_library/`
-works with no download, and an offline machine works once the cache is warm.
+An explicit path is *exclusive*: if the file is not there you get an error
+rather than a silent fall-through to a different copy. A source checkout that
+already has `model_save/` and `fragment_library/` works with no download, and an
+offline machine works once the cache is warm. Override the repo with
+`$DEEPBIOISOSTERE_HF_REPO`.
 
 Pre-fetch everything before going offline:
 
@@ -83,11 +87,6 @@ Pre-fetch everything before going offline:
 deepbioisostere download --all
 deepbioisostere info          # show what is available and where it lives
 ```
-
-> **Note.** The Hugging Face repository is configured via the
-> `DEFAULT_HF_REPO_ID` constant in `src/deepbioisostere/assets.py`, overridable
-> with `$DEEPBIOISOSTERE_HF_REPO`. Set it to the published namespace before
-> release.
 
 ### Published checkpoints
 
@@ -104,13 +103,19 @@ deepbioisostere info          # show what is available and where it lives
 Other pairs (`logp`+`qed`, `logp`+`sa`, `mw`+`sa`) were not trained; asking for
 one reports that explicitly rather than failing to download.
 
-The **first** generation call also builds two tensor caches
-(`frag_features.pkl`, `frag_brics_maskings.pkl`) from `fragment_library.csv`.
-That takes a few minutes and is done once. To pay the cost up front — for
-instance inside a batch job rather than an interactive session:
+### Fragment library caches
+
+Generation needs `frag_features.pkl`, a pre-parsed tensor cache derived from
+`fragment_library.csv`. It is published (708 MB) so that a first run is a
+download. If it is ever absent it is rebuilt automatically, but that parses
+~146k fragments and takes **on the order of an hour**, so prefer the download.
+
+Training additionally needs `frag_brics_maskings.pkl`. That one is ~3 GB and is
+*not* published; it is rebuilt locally on first training run. To build either
+ahead of time — inside a batch job rather than an interactive session:
 
 ```bash
-deepbioisostere fragment-library prepare
+deepbioisostere fragment-library prepare --num-cores 8
 ```
 
 ## Command line interface

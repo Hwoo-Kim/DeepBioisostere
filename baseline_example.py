@@ -1,4 +1,14 @@
-import os
+"""Compare DeepBioisostere against the three baseline replacement strategies.
+
+Run with::
+
+    python baseline_example.py
+
+The checkpoint and fragment library are resolved automatically -- a local
+``model_save/`` and ``fragment_library/`` if present, otherwise the Hugging
+Face Hub, cached after the first fetch. See ``deepbioisostere.assets``.
+"""
+
 import time
 
 from rdkit import Chem
@@ -28,17 +38,13 @@ if __name__ == "__main__":
 
     # USER SETTINGS
     device = "cpu"
-    num_cores = 4
+    num_cores = 2  # a memory setting: the parsed library is ~7 GB per worker
     batch_size = 512
     num_sample_each_mol = 100
     new_frag_type = "all"
     properties_to_control = ["mw", "logp"]
 
-    # Set paths
     properties = sorted(properties_to_control)
-    proj_dir = os.path.dirname(os.path.abspath(__file__))
-    model_path = f"{proj_dir}/model_save/DeepBioisostere_{'_'.join(properties)}.pt"
-    frag_lib_path = f"{proj_dir}/fragment_library/"
 
     # Initialize conditioner for property control
     conditioner = Conditioner(
@@ -46,13 +52,17 @@ if __name__ == "__main__":
         properties=properties,
     )
 
-    # Initialize model for strategy 2
-    model = DeepBioisostere.from_trained_model(model_path, properties=properties)
+    # Initialize model for strategy 2. from_pretrained() picks the checkpoint
+    # matching this property set and fetches it if it is not already local;
+    # leaving processed_frag_dir=None below does the same for the library.
+    # Neither is shipped in the repository, so hardcoding paths here would
+    # break a fresh clone.
+    model = DeepBioisostere.from_pretrained(properties=properties)
 
     # Initialize baseline generator
     baseline_generator = BaselineGenerator(
         model=model,
-        processed_frag_dir=frag_lib_path,
+        processed_frag_dir=None,
         conditioner=conditioner,
         device=device,
         num_cores=num_cores,
@@ -62,8 +72,14 @@ if __name__ == "__main__":
         properties=properties,
     )
 
-    # Prepare input with property constraints
-    input_list = [smi1, smi2]
+    # Prepare input with property constraints.
+    #
+    # A conditioner is attached above, so every entry must be
+    # (smiles, targets) -- _generate_with_strategy does zip(*input_list) and a
+    # list of bare SMILES fails there with "too many values to unpack". The
+    # bare-SMILES form is only valid with conditioner=None.
+    targets = {"mw": 0, "logp": -1}
+    input_list = [(smi1, dict(targets)), (smi2, dict(targets))]
 
     print("=" * 80)
     print("STRATEGY 1: Random leaving fragment + Frequency-based insertion fragment")

@@ -139,9 +139,14 @@ Generation needs `frag_features.pkl`, a pre-parsed tensor cache derived from
 download. If it is ever absent it is rebuilt automatically, but that parses all
 140,096 fragments and takes **on the order of an hour**, so prefer the download.
 
-Training additionally needs `frag_brics_maskings.pkl`. That one is ~3 GB and is
-*not* published; it is rebuilt locally on first training run. To build either
-ahead of time — inside a batch job rather than an interactive session:
+Training additionally needs `frag_brics_maskings.pkl` (2.9 GB), which maps each
+BRICS attachment type to the fragments that can attach there. Generation never
+loads it — `Generator` derives that compatibility on the fly — so it is not on
+the Hub with the other assets; it is published on Zenodo instead, alongside the
+experiments. Download it only if you intend to train.
+
+Either cache can be rebuilt from `fragment_library.csv` instead. Do it in a
+batch job rather than an interactive session:
 
 ```bash
 deepbioisostere fragment-library prepare --num-cores 8

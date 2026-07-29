@@ -7,11 +7,40 @@ an environment where the scientific stack is broken.
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
+
+# The package-wide logger the commands configure. `assets` logs onto a child of
+# it, and Generator is handed its .info so that one switch covers both.
+_asset_logger = logging.getLogger("deepbioisostere")
+
+
+def _setup_logging(quiet: bool) -> None:
+    """Send package progress messages to stderr, unless suppressed.
+
+    On by default: the first run of ``generate`` spends minutes downloading a
+    712 MB tensor cache, and silence during that is indistinguishable from a
+    hang. stderr rather than stdout so that piping the csv stays clean.
+
+    Configuring the root logger is an application's job, not a library's, which
+    is why this lives here and ``assets`` only ever calls ``logger.info``.
+    """
+    if quiet:
+        # A NullHandler rather than a raised level, so nothing reaches the
+        # "no handlers could be found" fallback either.
+        _asset_logger.addHandler(logging.NullHandler())
+        _asset_logger.propagate = False
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    _asset_logger.addHandler(handler)
+    _asset_logger.setLevel(logging.INFO)
+    _asset_logger.propagate = False
+
 
 app = typer.Typer(
     add_completion=False,
@@ -107,6 +136,12 @@ def generate(
         None, help="Fragment library directory. Defaults to cache/Hub."
     ),
     seed: Optional[int] = typer.Option(None, help="Random seed."),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress progress messages about asset resolution and download.",
+    ),
 ) -> None:
     """Generate bioisosteric replacements for one or more molecules.
 
@@ -114,6 +149,7 @@ def generate(
 
         deepbioisostere generate -s "Cc1ccc2cnc(N(C)CCc3ccccn3)nc2c1" -t mw=0 -t logp=-1
     """
+    _setup_logging(quiet)
     inputs = list(smiles)
     if input_file is not None:
         inputs.extend(_read_smiles_file(input_file))
@@ -155,6 +191,10 @@ def generate(
             new_frag_type=new_frag_type,
             num_sample_each_mol=num_samples,
             properties=properties,
+            # Generator defaults to bare print(); route it through the same
+            # switch so --quiet silences everything the package emits, not
+            # just the asset messages.
+            logger=(lambda *_a, **_k: None) if quiet else _asset_logger.info,
         )
     except AssetError as exc:
         raise _fail(str(exc)) from None
@@ -182,11 +222,18 @@ def download(
     fragment_library: bool = typer.Option(
         True, help="Also fetch the fragment library."
     ),
+    quiet: bool = typer.Option(
+        False,
+        "--quiet",
+        "-q",
+        help="Suppress progress messages about asset resolution and download.",
+    ),
 ) -> None:
     """Pre-fetch checkpoints and the fragment library into the local cache.
 
     Useful before going offline, or on a compute node with no outbound network.
     """
+    _setup_logging(quiet)
     from .assets import (
         AVAILABLE_ABLATION_SETS,
         AVAILABLE_PROPERTY_SETS,

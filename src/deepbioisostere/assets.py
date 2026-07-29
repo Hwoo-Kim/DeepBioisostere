@@ -18,7 +18,9 @@ here downloads at import time.
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from pathlib import Path
 from typing import Iterable, Sequence
 
@@ -33,6 +35,25 @@ __all__ = [
     "resolve_checkpoint",
     "resolve_fragment_library",
 ]
+
+# Asset resolution is the one part of a first run that is slow and invisible:
+# `generate` can sit for minutes fetching a 712 MB tensor cache with nothing on
+# screen to say so. These messages explain the wait and, just as usefully, say
+# *which* copy of an asset was chosen -- silently picking up a different local
+# fragment library is the failure that silently changes results.
+#
+# Library convention: log, never configure. Nothing is printed unless the
+# application attaches a handler, so importing this module stays quiet. The CLI
+# turns it on; `--quiet` turns it back off.
+logger = logging.getLogger(__name__)
+
+
+def _describe_size(path: Path) -> str:
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return "unknown size"
+    return f"{size / 1e6:.1f} MB"
 
 # Overridable at runtime with $DEEPBIOISOSTERE_HF_REPO.
 DEFAULT_HF_REPO_ID = "mseok/DeepBioisostere"
@@ -142,6 +163,11 @@ def _download(filename: str, local_dir: Path) -> Path:
         ) from exc
 
     local_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(
+        "downloading %s from Hugging Face repo %s into %s", filename, repo_id,
+        local_dir,
+    )
+    started = time.monotonic()
     try:
         # local_dir gives real files rather than symlinks into the blob store,
         # which matters because the fragment library directory is written to.
@@ -157,7 +183,12 @@ def _download(filename: str, local_dir: Path) -> Path:
             "assets (for example the model_save/ directory of a source "
             "checkout), or set $DEEPBIOISOSTERE_HF_REPO to a mirror."
         ) from exc
-    return Path(path)
+    resolved = Path(path)
+    logger.info(
+        "downloaded %s (%s) in %.1fs", filename, _describe_size(resolved),
+        time.monotonic() - started,
+    )
+    return resolved
 
 
 def resolve_checkpoint(
@@ -180,6 +211,8 @@ def resolve_checkpoint(
         explicit = Path(local_dir).expanduser()
         candidate = explicit / filename
         if candidate.is_file():
+            logger.info("checkpoint %s: using explicit path %s (%s)", filename,
+                        candidate, _describe_size(candidate))
             return candidate
         raise AssetError(
             f"{filename!r} was not found in {explicit}. "
@@ -190,11 +223,18 @@ def resolve_checkpoint(
         for directory in (override, override / "model_save"):
             candidate = directory / filename
             if candidate.is_file():
+                logger.info(
+                    "checkpoint %s: using $DEEPBIOISOSTERE_ASSET_DIR copy %s (%s)",
+                    filename, candidate, _describe_size(candidate),
+                )
                 return candidate
 
     cached = default_cache_dir() / "checkpoints"
     if (candidate := cached / filename).is_file():
+        logger.info("checkpoint %s: cache hit at %s (%s)", filename, candidate,
+                    _describe_size(candidate))
         return candidate
+    logger.info("checkpoint %s: not cached, fetching", filename)
     return _download(filename, cached)
 
 
@@ -211,6 +251,7 @@ def resolve_fragment_library(
     if local_dir is not None:
         explicit = Path(local_dir).expanduser()
         if (explicit / FRAGMENT_LIBRARY_CSV).is_file():
+            _log_library(explicit, "explicit path")
             return explicit
         raise AssetError(
             f"{FRAGMENT_LIBRARY_CSV!r} was not found in {explicit}. "
@@ -221,17 +262,54 @@ def resolve_fragment_library(
     if (override := _asset_dir_override()) is not None:
         for directory in (override, override / "fragment_library"):
             if (directory / FRAGMENT_LIBRARY_CSV).is_file():
+                _log_library(directory, "$DEEPBIOISOSTERE_ASSET_DIR")
                 return directory
 
     cached = default_cache_dir() / "fragment_library"
-    if not (cached / FRAGMENT_LIBRARY_CSV).is_file():
+    cold = not (cached / FRAGMENT_LIBRARY_CSV).is_file()
+    if cold:
+        logger.info("fragment library: not cached, fetching")
         _download(FRAGMENT_LIBRARY_CSV, cached)
-    # Derived caches are a nice-to-have: pull them if the Hub repo publishes
-    # them, otherwise they are regenerated locally from the csv.
-    for derived in FRAGMENT_LIBRARY_DERIVED:
-        if not (cached / derived).is_file():
+
+    # Derived caches are a nice-to-have: pull them if the Hub publishes them,
+    # otherwise they are regenerated locally from the csv.
+    #
+    # Only on a cold cache. frag_brics_maskings.pkl is deliberately NOT on the
+    # Hub -- it is 2.9 GB and training-only -- so retrying it on a warm cache
+    # meant a failed network round-trip on every single `generate`, plus a
+    # confusing "not available" line each time.
+    if cold:
+        for derived in FRAGMENT_LIBRARY_DERIVED:
+            if (cached / derived).is_file():
+                continue
             try:
                 _download(derived, cached)
             except AssetError:
-                pass
+                logger.info(
+                    "fragment library: %s is not distributed on the Hub. "
+                    "Generation does not need it; training does, and it is "
+                    "built locally on demand (about an hour) or downloaded "
+                    "from the Zenodo record.", derived,
+                )
+    _log_library(cached, "cache")
     return cached
+
+
+def _log_library(directory: Path, source: str) -> None:
+    """Report which library was chosen and which derived caches it already has.
+
+    Which fragment library is in play decides which molecules get generated --
+    insertion fragments are selected by index into it -- so this is the single
+    most consequential resolution the package makes.
+    """
+    if not logger.isEnabledFor(logging.INFO):
+        return
+    present = [d for d in FRAGMENT_LIBRARY_DERIVED if (directory / d).is_file()]
+    missing = [d for d in FRAGMENT_LIBRARY_DERIVED if d not in present]
+    logger.info("fragment library: using %s (%s)", directory, source)
+    csv = directory / FRAGMENT_LIBRARY_CSV
+    logger.info("    %s (%s)", FRAGMENT_LIBRARY_CSV, _describe_size(csv))
+    for name in present:
+        logger.info("    %s (%s)", name, _describe_size(directory / name))
+    for name in missing:
+        logger.info("    %s absent (built on demand)", name)

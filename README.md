@@ -274,25 +274,36 @@ pairs into the fragment library the model selects from. Scripts are under
 filtering rationale in
 [`data/fragment_library/README.md`](data/fragment_library/README.md).
 
-Paths below are relative to `data/`. Note that step 8 sits one level up from
-steps 2–7.
+Paths below are relative to `data/`. Note that steps 9 and 10 sit outside
+`fragment_library/`.
 
 | Step | Script | What it does |
 |---|---|---|
 | 1 | *(manual)* | Download ChEMBL activities (`pChEMBL`, SMILES, ChEMBL ID) |
 | 2 | `fragment_library/chembl/parse_csv.py` | Parse the raw export |
-| 3 | `fragment_library/chembl/filter_chembl.py` | Apply the activity and property filters |
+| 3 | `fragment_library/chembl/filter_chembl.py` | Activity and property filters; one row per CID |
 | 4 | `fragment_library/make_frag_db.py` | Enumerate the fragment database |
-| 5 | `fragment_library/filter_pair.py` | Cap variable-part size |
-| 6 | `fragment_library/parse_db.py` | Turn the database into matched pairs |
-| 7 | `fragment_library/process_pair.py`, `fragment_library/analyze_pair.py` | Assemble and summarise the pair data |
-| 8 | `divide.py` / `divide.sh` | Split into train / validation / test |
+| 5 | `fragment_library/parse_db.py` | Turn the database into matched pairs |
+| 6 | `fragment_library/filter_pair.py` | Drop duplicates; require both members from one assay |
+| 7 | `fragment_library/process_pair.py` | Add attachment-point information |
+| 8 | `fragment_library/filter_by_pchembl.py` | Keep pairs with \|ΔpChEMBL\| ≤ 1.0 |
+| 9 | `divide_revised.py` | Transformation-frequency filter, then the 8:1:1 split |
+| 10 | `deepbioisostere.fragment_library.parse_fragments` | Build the tensor caches |
+
+Two settings decide whether you get the published dataset:
+`filter_by_pchembl.py` is not optional (it implements the |ΔpChEMBL| ≤ 1 cut),
+and `divide_revised.py --min_trans_count` must be **1** — its default is 5.
+That `1` is what the `freq_1` naming in the original data directories refers
+to. `data/fragment_library/README.md` covers both.
 
 The published library was built with these filters:
 
 - activity `0 ≤ pChEMBL ≤ 10,000 nM`, molecular weight ≤ 800 Da, salts removed
 - variable parts capped at **12 heavy atoms**, chosen to admit bicyclic rings
 - for `A-B-C` vs `A-D-C`, pairs are dropped when `B` or `D` outweighs `A+C`
+- both members of a pair must come from the **same assay**
+- the two compounds must differ by at most **1.0 pChEMBL unit**, so a pair is an
+  isosteric substitution rather than an activity cliff
 
 The result is **140,096** insertion fragments, split 112,076 train / 14,013
 validation / 14,007 test. Generation selects fragments *by index* into this

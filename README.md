@@ -3,7 +3,7 @@
 **Autonomous bioisosteric replacement for multi-property optimization in drug design**
 
 [![Paper](https://img.shields.io/badge/Nature%20Communications-10.1038%2Fs41467--026--75512--9-b31b1b)](https://doi.org/10.1038/s41467-026-75512-9)
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20603082.svg)](https://doi.org/10.5281/zenodo.20603082)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20603081.svg)](https://doi.org/10.5281/zenodo.20603081)
 [![Project page](https://img.shields.io/badge/project-page-blue)](https://mseok.github.io/DeepBioisostere/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -134,6 +134,26 @@ one reports that explicitly rather than failing to download.
 
 ### Fragment library caches
 
+> [!IMPORTANT]
+> Two different `fragment_library.csv` builds exist and they are **not**
+> interchangeable. Generation selects an insertion fragment *by index* into the
+> library, so the wrong build silently produces different molecules — no error,
+> no warning.
+>
+> | build | insertion fragments | size | `git hash-object` |
+> |---|---|---|---|
+> | **published — use this** | 140,096 | 12,407,976 B | `31797fc47717135b31df3f96757b87456164af01` |
+> | superseded | 145,854 | 12,961,217 B | `bd689aeb7d3b9025e5876adf5ef13548f08a9d2e` |
+>
+> This package resolves the correct build from the Hub automatically, and the
+> current Zenodo version does not carry a library file at all, so both normal
+> paths are safe. One frozen artefact still contains the superseded build:
+> `Hwoo-Kim/DeepBioisostere-v1.1.0.zip`, the repository snapshot attached to
+> Zenodo version `v1.1.0`. Published Zenodo files are immutable, so that copy
+> cannot be corrected in place — it can only be left behind, which is why the
+> current version omits it. If you have a `fragment_library.csv` from anywhere
+> other than the Hub, check it with `git hash-object` before trusting it.
+
 Generation needs `frag_features.pkl`, a pre-parsed tensor cache derived from
 `fragment_library.csv`. It is published (708 MB) so that a first run is a
 download. If it is ever absent it is rebuilt automatically, but that parses all
@@ -141,9 +161,11 @@ download. If it is ever absent it is rebuilt automatically, but that parses all
 
 Training additionally needs `frag_brics_maskings.pkl` (2.9 GB), which maps each
 BRICS attachment type to the fragments that can attach there. Generation never
-loads it — `Generator` derives that compatibility on the fly — so it is not on
-the Hub with the other assets; it is published on Zenodo instead, alongside the
-experiments. Download it only if you intend to train.
+loads it — `Generator` derives that compatibility on the fly — so it is not
+distributed at all: not on the Hub with the generation-path assets, and not in
+the Zenodo record. Build it locally with the command below if you intend to
+train. It is a derived cache, not an input, so a rebuild is not a second-class
+substitute for a download.
 
 Either cache can be rebuilt from `fragment_library.csv` instead. Do it in a
 batch job rather than an interactive session:
@@ -259,7 +281,7 @@ that `--num-cores` there is a memory decision as much as a speed one: the
 parsed library is held before forking, so each worker costs several GB.
 
 Training data is available from Zenodo:
-[10.5281/zenodo.20603082](https://doi.org/10.5281/zenodo.20603082).
+[10.5281/zenodo.20603081](https://doi.org/10.5281/zenodo.20603081).
 
 ## Building the training data (MMPA)
 
@@ -320,15 +342,21 @@ The analysis notebooks, per-figure source data, figure outputs, docking
 provenance **and the reproduction scripts** are archived on Zenodo, not in this
 repository:
 
-**[10.5281/zenodo.20603082](https://doi.org/10.5281/zenodo.20603082)**
+**[10.5281/zenodo.20603081](https://doi.org/10.5281/zenodo.20603081)**
 
 That record is self-contained: you do not need this repository to reproduce a
 figure. The code comes from PyPI, everything else from the record.
 
+> [!NOTE]
+> That is the **concept DOI**: it always resolves to the newest version of the
+> record. Every version also has its own DOI (`…20603082` is `v1.1.0`), and a
+> version DOI is frozen — it will not pick up later corrections. Cite the
+> concept DOI unless you specifically need to pin one version.
+
 ```bash
 pip install deepbioisostere
-# download DeepBioisostere-experiments.tar.gz and the reproduce_*.py scripts
-tar -xzf DeepBioisostere-experiments.tar.gz          # creates ./exps/
+# download DeepBioisostere-experiments.tar.gz from the record
+tar -xzf DeepBioisostere-experiments.tar.gz   # ./exps/ + the reproduce_*.py scripts
 
 python reproduce_fig4.py   --device cpu               # minutes
 python reproduce_fig3.py   --target-prop logp --device cuda:0 --num-workers 2
@@ -355,9 +383,17 @@ that experiment's exact settings.
 | Figure 2 | **99.32%** of 50,487 molecules; **99.75%** under the paper's original pins |
 
 Figure 2 is the one experiment exposed to GPU nondeterminism, and the only one
-that does not come back exactly. The residual is *swaps, not losses*: nearly
-every missing row is paired with an extra row from the same input molecule at a
-near-tied probability, and the missing molecules sit in the low-probability tail.
+that does not come back exactly. The residual is *swaps, not losses* — what
+establishes that is the balance of the two directions: on the case1+case2 rerun,
+294 published molecules were missing against 296 extra ones, so counts are
+conserved to within a couple of molecules rather than lost.
+
+How far the near-tie explanation actually goes is measured, not assumed, and it
+covers less than the balance argument does: only 25% of misses have a
+probability-matched partner within 1e-6 (the scale of the perturbation itself),
+74% within 1e-3. See **[docs/figure2-nondeterminism.md](docs/figure2-nondeterminism.md)**
+for the mechanism, worked examples of a swap, the full tolerance sweep, and the
+`tie_sweep_fig2.py` script that re-runs the check on your own output.
 
 Everything that moves is a case3 SA value, and it moves because `rdkit`'s
 `sascorer` changed, not because the model did: scoring the same 45,692 published

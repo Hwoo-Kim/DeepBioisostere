@@ -48,30 +48,38 @@ There is no longer any conda requirement, and no `torch-scatter` /
 by native `torch` operations (see `src/deepbioisostere/scatter.py`). A plain
 `pip install` is sufficient on CPU and GPU alike.
 
-### If you have a GPU: check your driver first
+### If you have a GPU
 
-`pip install` pulls whatever torch PyPI currently defaults to, which is built
-against **CUDA 13.0** and needs a **580 or newer** driver. On an older driver it
-installs fine and then dies at the first GPU allocation:
+`pip install deepbioisostere` is enough. The dependency is capped at
+`torch<2.11` so that pip resolves a **CUDA 12** build, which runs on any driver
+from **525** up — including the 580+ drivers that CUDA 13 needs, since 12.x
+wheels keep working on newer drivers.
 
-```
-RuntimeError: The NVIDIA driver on your system is too old (found version 12040)
-```
+> [!NOTE]
+> The cap exists because `--extra-index-url` cannot fix this. pip gives extra
+> indexes **no priority**: it collects candidates from every index and takes the
+> highest version, so pointing it at the cu124 index still yields the newer
+> CUDA 13 wheel from PyPI. It installs cleanly and then reports no GPU. `uv`
+> does prioritise extra indexes and behaves differently, which makes the failure
+> look intermittent across machines. Capping the version is the only fix that
+> works for both.
 
-Check what you have, and pick a matching index:
+torch 2.11 was the switch from `nvidia-*-cu12` to `-cu13`. CUDA 12.x has
+minor-version compatibility so a cu12 build runs on any 12.x driver; 13.0 is a
+major bump and does not fall back, which is why the older line is the portable
+one.
+
+To check what you have:
 
 ```bash
 nvidia-smi --query-gpu=driver_version --format=csv,noheader
 ```
 
-| Driver | CUDA | Install with |
-|---|---|---|
-| ≥ 580 | 13.0 | `pip install deepbioisostere` |
-| ≥ 525 | 12.x | `pip install deepbioisostere --extra-index-url https://download.pytorch.org/whl/cu124` |
-| none | CPU | `pip install deepbioisostere --extra-index-url https://download.pytorch.org/whl/cpu` |
+For a CPU-only machine, or to force a CPU build:
 
-CUDA 12.x has minor-version compatibility, so a cu124 build runs on any 12.x
-driver. 13.0 is a major bump and does not fall back.
+```bash
+pip install deepbioisostere --extra-index-url https://download.pytorch.org/whl/cpu
+```
 
 Expect the install to fetch **2–4 GB**: torch, the `nvidia-*` CUDA runtime
 libraries and `triton` account for nearly all of it. This package itself is

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "deepbioisostere"
-version = "1.0.0"
+version = "1.0.1"
 description = "Autonomous bioisosteric replacement for multi-property optimization in drug design"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -41,7 +41,13 @@ dependencies = [
     "pandas>=2.2",
     "rdkit>=2024.3",
     "scipy>=1.13",
-    "torch>=2.6",
+    # Upper bound is about the CUDA runtime, not the API. torch <=2.10 pulls
+    # nvidia-*-cu12 and runs on any 12.x driver; 2.11 switched to cu13, which
+    # needs a 580+ driver and otherwise fails at CUDA init with no GPU. Without
+    # this cap a plain `pip install` silently produces a CPU-only install on
+    # every 12.x machine, because pip gives --extra-index-url no priority and
+    # picks the highest version it can see.
+    "torch>=2.6,<2.11",
     "torch-geometric>=2.6",
     "tqdm>=4.66",
     "typer>=0.12",

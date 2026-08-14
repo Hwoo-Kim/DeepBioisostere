@@ -38,10 +38,22 @@ pip install deepbioisostere
 Or, for a development checkout with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-git clone https://github.com/Hwoo-Kim/DeepBioisostere.git
+git clone --depth 1 https://github.com/Hwoo-Kim/DeepBioisostere.git
 cd DeepBioisostere
 uv sync
 ```
+
+> [!TIP]
+> Use `--depth 1` unless you specifically need the history. The current tree is
+> under 1 MB, but the tags `v1.0.0` and `v1.1.0` preserve the pre-refactor
+> layout, which committed ~200 MB of checkpoints and the 12 MB fragment library
+> directly to git. A full clone fetches every tag and so still transfers about
+> 350 MB. Those tags are kept deliberately: `v1.1.0` is the archival reference
+> cited from the Zenodo record, so it is not going to be deleted.
+>
+> Nothing in a checkout carries the weights any more. Checkpoints and the
+> fragment library are downloaded from the Hugging Face Hub on first use and
+> cached — see [Model weights and fragment library](#model-weights-and-fragment-library).
 
 There is no longer any conda requirement, and no `torch-scatter` /
 `torch-sparse` / `torch-cluster`: those compiled extensions have been replaced
@@ -113,10 +125,13 @@ are fetched on first use. They are resolved in this order:
 3. the Hub, cached under `$XDG_CACHE_HOME/deepbioisostere`.
 
 An explicit path is *exclusive*: if the file is not there you get an error
-rather than a silent fall-through to a different copy. A source checkout that
-already has `model_save/` and `fragment_library/` works with no download, and an
-offline machine works once the cache is warm. Override the repo with
-`$DEEPBIOISOSTERE_HF_REPO`.
+rather than a silent fall-through to a different copy. A directory that already
+holds `model_save/` and `fragment_library/` — a pre-refactor checkout, or one
+you populated yourself — works with no download, and an offline machine works
+once the cache is warm. Override the repo with `$DEEPBIOISOSTERE_HF_REPO`.
+
+A current checkout does **not** ship either of them: they were removed from the
+tree so that cloning no longer costs 200 MB.
 
 Pre-fetch everything before going offline:
 
